@@ -66,6 +66,8 @@ jobs:
       TRADEWINDS_DATABASE_URL: postgresql+asyncpg://tradewinds:tradewinds@localhost:5432/tradewinds
       TRADEWINDS_REDIS_URL: redis://localhost:6379/0
       TRADEWINDS_JWT_SECRET: ci-only-secret
+      # 多个集成测试共享同一"来源 IP",调高限次避免误触发 429
+      TRADEWINDS_AUTH_RATE_LIMIT_MAX: "200"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
