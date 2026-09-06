@@ -45,6 +45,9 @@ class Settings(BaseSettings):
         default=6.0, description="进 Editor 的评分下限,低于此值条目置 rejected(暂定值)"
     )
 
+    # --- 对话 Agent ---
+    chat_concurrency_limit: int = Field(default=3, description="每用户并发对话数上限")
+
     # --- 邮件推送 ---
     app_base_url: str = Field(
         default="http://localhost:8000", description="对外 base URL(退订链接用)"
