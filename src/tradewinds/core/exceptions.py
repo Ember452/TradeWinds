@@ -40,3 +40,10 @@ class QuotaExceededError(TradeWindsError):
 
     code = "quota_exceeded"
     status_code = 403
+
+
+class LLMError(TradeWindsError):
+    """LLM 调用在重试后仍失败(网络/限流/5xx)。"""
+
+    code = "llm_unavailable"
+    status_code = 503
