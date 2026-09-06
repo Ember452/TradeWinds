@@ -1,4 +1,4 @@
-.PHONY: lint fmt type test test-all dev migrate
+.PHONY: lint fmt type test test-all dev migrate up down
 
 lint:
 	uv run ruff check .
@@ -22,3 +22,9 @@ dev:
 
 migrate:
 	uv run alembic upgrade head
+
+up:
+	docker compose up -d --build
+
+down:
+	docker compose down

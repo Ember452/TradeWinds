@@ -1,0 +1,15 @@
+# 生产覆写:与基础 compose 合并使用
+#   docker compose -f docker-compose.yml -f deploy/compose.prod.yml up -d
+services:
+  api:
+    restart: always
+    image: ghcr.io/OWNER/tradewinds-api:latest
+
+  postgres:
+    restart: always
+
+  redis:
+    restart: always
+
+  caddy:
+    restart: always
