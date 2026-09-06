@@ -88,6 +88,7 @@ TradeWinds/
 │   │   ├── orchestrator/   # 自研编排层（LLM 抽象、工具循环、结构化输出、流式、计量），不含业务
 │   │   ├── prompts/        # 全部 prompt 独立文件，代码不内嵌
 │   │   ├── schemas/        # 角色间传递的 Pydantic 模型（检索计划、评分、摘要）
+│   │   ├── push_judge.py   # 即时推送 LLM 守门（低档判定 push/skip + 理由）
 │   │   └── 四角色各一个模块 # planner / retriever / analyst / editor
 │   ├── tools/          # 信息源客户端：base 协议 + arxiv / hn / github / websearch / 通用抓取
 │   ├── tasks/          # Celery：应用工厂、任务定义、队列路由、beat 调度
@@ -128,15 +129,21 @@ TradeWinds/
 class LLMProvider(Protocol):
     async def complete(self, messages: list[Message], *, model: ModelTier,
                        response_model: type[T] | None = None) -> LLMResult[T]: ...
-    def stream(self, messages: list[Message], *, model: ModelTier) -> AsyncIterator[str]: ...
+    def stream(self, messages: list[Message], *,
+               model: ModelTier) -> AsyncIterator[StreamEvent]: ...
+    # StreamEvent(delta, usage|None):delta 为文本增量,usage 仅出现在最后一个事件
+    # (供应商不支持 stream_options.include_usage 时为 None,该次计量记 0)
 
 # agents/orchestrator/loop.py —— 工具循环（Retriever 对话模式的核心）
+# 两阶段:决策轮走结构化输出(LoopDecision,空 tool_calls=请求作答),
+# 作答轮走 provider 流式;事件序 ToolTraceEvent* → AnswerDeltaEvent* → LoopDoneEvent
 class ToolLoop:
     def __init__(self, provider: LLMProvider, tools: ToolRegistry, *,
                  model: ModelTier = ModelTier.low,
                  max_iterations: int = 10, total_timeout: float = 120.0,
                  max_context_chars: int = 24_000): ...
     async def run(self, messages: list[Message]) -> LoopResult: ...
+    def run_streaming(self, messages: list[Message]) -> AsyncIterator[LoopEvent]: ...
 
 # agents/orchestrator/structured.py —— 结构化输出执行器
 class StructuredRunner:

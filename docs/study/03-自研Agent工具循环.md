@@ -28,3 +28,9 @@ TradeWinds 的对话研究 Agent 要"边查边答":用户问一个研究问题,A
 
 - [Anthropic: Building effective agents](https://www.anthropic.com/engineering/building-effective-agents)——"workflow vs agent"的边界划分,与本项目"管道用 workflow、对话用 loop"一致
 - [OpenAI Cookbook: Function calling](https://cookbook.openai.com/examples/function_calling)——理解原生 tool_calls 协议,便于对比本实现的取舍
+
+---
+
+## 2026-09 更新:决策与作答分离
+
+本文写作时的设计是单调用结构化决策:`AssistantTurn(content, tool_calls)` 一肩挑——要么给 `content`(答案),要么给 `tool_calls`。真流式改造后决策 schema 演进为 `LoopDecision(tool_calls)`:决策轮只回答"调什么工具",空列表即请求作答;作答改走 provider 流式文本。当年"不绑定原生 tool_calls、供应商可切换"的取舍原样保留,只是把"答案"从 JSON 字符串里解放了出来。完整取舍与实现见 [19-流式工具循环的决策与作答分离](19-流式工具循环的决策与作答分离.md)。
