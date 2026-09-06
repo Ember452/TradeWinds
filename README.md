@@ -36,6 +36,9 @@ make demo               # 一键起全栈(api/worker/beat/postgres/redis/caddy/m
 
 前置:Python 3.13+、[uv](https://docs.astral.sh/uv/)、Node 22+。
 
+> 国内网络建议把 uv 镜像设为**用户级环境变量**(勿写入仓库,CI 的海外 runner 访问国内镜像会超时):
+> `UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple/`
+
 ```bash
 # 后端(单元测试不需要数据库/Redis)
 make test          # = uv run pytest -m "not integration"
