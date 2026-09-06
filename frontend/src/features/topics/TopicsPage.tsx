@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, ApiError } from "../../shared/api";
+import { ArrowUpRight, Inbox, Plus } from "lucide-react";
+import { api } from "@/shared/api";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/shared/EmptyState";
+import { CreateTopicDialog } from "./components/CreateTopicDialog";
 
 interface Topic {
   id: number;
@@ -11,123 +18,80 @@ interface Topic {
   plan: Record<string, unknown> | null;
 }
 
-interface TopicCreated {
-  topic: Topic;
-  plan: Record<string, unknown>;
-}
-
 export function TopicsPage() {
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [cadence, setCadence] = useState<"daily" | "weekly">("daily");
-  const [created, setCreated] = useState<TopicCreated | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [topics, setTopics] = useState<Topic[] | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const load = useCallback(() => {
-    api<Topic[]>("/api/v1/topics")
-      .then(setTopics)
-      .catch((err: ApiError) => setError(err.message));
+    api<Topic[]>("/api/v1/topics").then(setTopics).catch(() => setTopics([]));
   }, []);
 
   useEffect(load, [load]);
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    try {
-      const result = await api<TopicCreated>("/api/v1/topics", {
-        method: "POST",
-        body: { name, description, cadence },
-      });
-      setCreated(result);
-      setName("");
-      setDescription("");
-      load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "网络错误");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   return (
     <div>
-      <h1>我的主题</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold">我的主题</h1>
+          <p className="mt-1 text-sm text-muted-foreground">每个主题是一条自动运转的情报管道</p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="size-4" /> 新建主题
+        </Button>
+      </div>
 
-      <section className="card">
-        <h2>新建主题</h2>
-        <form onSubmit={handleSubmit} className="topic-form">
-          <input
-            placeholder="主题名称,如:AI Agent 动态"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            maxLength={200}
-          />
-          <textarea
-            placeholder="想长期关注什么?如:近一周 LLM Agent 领域的新技术与开源项目"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            required
-            maxLength={2000}
-            rows={3}
-          />
-          <select value={cadence} onChange={(e) => setCadence(e.target.value as "daily" | "weekly")}>
-            <option value="daily">每天</option>
-            <option value="weekly">每周</option>
-          </select>
-          <button type="submit" disabled={submitting}>
-            {submitting ? "编译检索计划中…" : "创建"}
-          </button>
-        </form>
-        {error && <p className="error">{error}</p>}
-        {created && <PlanPreview plan={created.plan} />}
-      </section>
-
-      {topics.length === 0 ? (
-        <p className="empty">还没有主题,创建第一个吧。</p>
+      {topics === null ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-36 rounded-2xl" />
+          <Skeleton className="h-36 rounded-2xl" />
+          <Skeleton className="h-36 rounded-2xl" />
+        </div>
+      ) : topics.length === 0 ? (
+        <EmptyState
+          icon={<Inbox className="size-6" />}
+          title="还没有主题"
+          description="创建第一个订阅,让情报开始飞。AI 会把你的描述编译成检索计划,自动追踪相关内容。"
+          action={
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4" /> 新建主题
+            </Button>
+          }
+        />
       ) : (
-        <ul className="topic-list">
+        <div className="grid gap-4 md:grid-cols-2">
           {topics.map((topic) => (
-            <li key={topic.id} className="card">
-              <Link to={`/topics/${topic.id}`} className="topic-link">
-                <strong>{topic.name}</strong>
-                <span className="meta">
-                  {topic.cadence === "daily" ? "每天" : "每周"} ·{" "}
-                  {topic.status === "active" ? "订阅中" : "已退订"}
-                </span>
-                <p>{topic.description}</p>
-              </Link>
-            </li>
+            <Card key={topic.id} className="group transition-all hover:-translate-y-0.5 hover:shadow-md">
+              <CardContent className="flex h-full flex-col p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <Link to={`/topics/${topic.id}`} className="text-lg font-bold hover:text-primary">
+                    {topic.name}
+                  </Link>
+                  <div className="flex shrink-0 gap-1.5">
+                    <Badge variant="secondary">{topic.cadence === "daily" ? "每天" : "每周"}</Badge>
+                    {topic.status === "active" ? (
+                      <Badge className="bg-success/15 text-success hover:bg-success/15">订阅中</Badge>
+                    ) : (
+                      <Badge variant="outline">已退订</Badge>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-2 line-clamp-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+                  {topic.description}
+                </p>
+                <Link
+                  to={`/topics/${topic.id}`}
+                  className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                >
+                  进入主题
+                  <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </Link>
+              </CardContent>
+            </Card>
           ))}
-        </ul>
+        </div>
       )}
-    </div>
-  );
-}
 
-export function PlanPreview({ plan }: { plan: Record<string, unknown> | null }) {
-  if (!plan) return null;
-  const keywords = (plan.keywords as string[]) ?? [];
-  const sources = (plan.sources as string[]) ?? [];
-  return (
-    <div className="plan-preview">
-      <h3>检索计划预览</h3>
-      <p>
-        关键词:{keywords.join("、")}
-      </p>
-      <p>信息源:{sources.join("、")}</p>
-      <p>时间窗:{String(plan.window_days)} 天</p>
-      <p>
-        判定标准:{" "}
-        {((plan.relevance_criteria as string[]) ?? []).join(";")}
-      </p>
-      <p className="hint">
-        想调整?编辑主题描述或频率会触发 Planner 重新编译。
-      </p>
+      <CreateTopicDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={load} />
     </div>
   );
 }

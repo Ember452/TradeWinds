@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tradewinds.agents.analyst import Analyst
 from tradewinds.agents.editor import Editor
 from tradewinds.agents.orchestrator.embeddings import Embedder
+from tradewinds.agents.push_judge import ItemPushDecision, PushJudge
 from tradewinds.agents.retriever import Retriever
 from tradewinds.agents.schemas.retrieval_plan import RetrievalPlan
 from tradewinds.core.exceptions import TradeWindsError
@@ -56,6 +57,7 @@ class PipelineService:
         feed_client_factory: Callable[[Any], SourceClient] | None = None,
         preference_builder: Callable[[int, int], Awaitable[list[str]]] | None = None,
         embedder: Embedder | None = None,
+        push_judge: PushJudge | None = None,
     ) -> None:
         self._session = session
         self._retriever = retriever
@@ -70,6 +72,7 @@ class PipelineService:
         self._feed_client_factory = feed_client_factory
         self._embedder = embedder
         self._preference_builder = preference_builder
+        self._push_judge = push_judge
 
     async def run_topic(self, topic: Topic) -> PipelineResult:
         """手动/定时触发共用入口;重复 run 依赖指纹去重,不产生重复条目。"""
@@ -129,8 +132,12 @@ class PipelineService:
             threshold = effective_immediate_threshold(recent_scores, self._immediate_threshold)
             high_score = [item for item in accepted_items if (item.score or 0) >= threshold]
             if high_score:
+                judgements = await self._judge_immediate(topic, high_score, preferences)
                 await self._push_service.prepare_immediate(
-                    topic, high_score, suppress_hours=self._suppress_hours
+                    topic,
+                    high_score,
+                    suppress_hours=self._suppress_hours,
+                    judgements=judgements,
                 )
         if self._report_service is not None:
             report = await self._report_service.upsert_period_report(topic, now=now)
@@ -156,6 +163,18 @@ class PipelineService:
             rejected=rejected,
             degraded=collected.degraded,
         )
+
+    async def _judge_immediate(
+        self, topic: Topic, high_score: list[Item], preferences: list[str]
+    ) -> dict[str, ItemPushDecision] | None:
+        """即时推送守门:Judge 缺位或调用失败时失败开放(None=全部照旧推送)。"""
+        if self._push_judge is None:
+            return None
+        try:
+            return await self._push_judge.decide(topic, high_score, preferences=preferences)
+        except Exception as exc:  # LLM 故障不改变推送行为,降级为无判定
+            logger.warning("push_judge_failed", topic_id=topic.id, error=str(exc))
+            return None
 
 
 def _plan_of(topic: Topic) -> RetrievalPlan:

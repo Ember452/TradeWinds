@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.retriever = components.retriever
     app.state.http_client = components.http_client
     app.state.rate_limiter = components.rate_limiter
+    app.state.push_judge = components.push_judge
     app.state.embedder = (
         OpenAICompatibleEmbedder(
             base_url=settings.llm_api_base,

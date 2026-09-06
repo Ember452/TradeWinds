@@ -64,6 +64,7 @@ async def _run_topic(topic_id: int) -> dict[str, object]:
                         session, user_id, exclude_topic_id=topic_id
                     ),
                     embedder=components.embedder,
+                    push_judge=components.push_judge,
                 )
                 result = await pipeline.run_topic(topic)
             finally:

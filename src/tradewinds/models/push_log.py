@@ -52,6 +52,8 @@ class PushLog(Base):
     )
     # 即时推送的聚类键:24h 抑制窗口的查询依据(digest 为空)
     cluster_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # 即时推送 LLM Judge 的判定依据;判 skip 的记录 status=skipped + 原因
+    judge_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

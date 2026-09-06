@@ -26,11 +26,11 @@ make demo               # 一键起全栈(api/worker/beat/postgres/redis/caddy/m
 
 | 入口 | 地址 | 说明 |
 |---|---|---|
-| 前端 | http://localhost | 订阅/Feed/对话三个界面，用演示账号登录 |
+| 前端 | http://localhost | 未登录先看宣传页;订阅/Feed/对话三个界面,用演示账号登录(登录页可一键填充) |
 | API 文档 | http://localhost/api/docs | OpenAPI |
 | Mailpit 收件箱 | http://localhost:8025 | 演示邮箱：汇总邮件、即时推送、报告推送都在这里看 |
 
-演示账号：`demo@tradewinds.local` / `demo12345`（由 `make seed` 创建，含预置主题、条目、报告与会话；幂等可重跑）。要体验真实检索→打分→推送链路，在 `.env` 配置 LLM key 后在主题页手动执行一次。
+演示账号：`demo@tradewinds.local` / `demo12345`（由 `make seed` 创建，含预置主题、条目、报告与会话；幂等可重跑；登录页提供"一键填充演示账号"）。要体验真实检索→打分→推送链路，在 `.env` 配置 LLM key 后在主题页手动执行一次。前端为晴空/星夜双主题（顶栏切换，默认跟随系统），宣传页与部分动效尊重系统"减弱动效"设置。
 
 ## 本地开发
 

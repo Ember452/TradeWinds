@@ -82,6 +82,7 @@ def get_pipeline_service(
             session, user_id, exclude_topic_id=topic_id
         ),
         embedder=request.app.state.embedder,
+        push_judge=request.app.state.push_judge,
     )
 
 

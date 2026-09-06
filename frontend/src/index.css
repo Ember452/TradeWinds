@@ -1,0 +1,97 @@
+/* 设计 token 体系:浅色 = 晴空,深色 = 星夜。语义色经 Tailwind @theme 桥接为工具类。 */
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  /* 本项目语义 token */
+  --color-background: var(--c-background);
+  --color-surface: var(--c-surface);
+  --color-surface-strong: var(--c-surface-strong);
+  --color-border-soft: var(--c-border);
+  --color-primary: var(--c-primary);
+  --color-primary-foreground: var(--c-primary-fg);
+  --color-accent: var(--c-accent);
+  --color-accent-foreground: var(--c-accent-fg);
+  --color-muted: var(--c-muted);
+  --color-muted-foreground: var(--c-muted-fg);
+  --color-success: var(--c-success);
+  --color-warning: var(--c-warning);
+  --color-danger: var(--c-danger);
+  --color-sky-1: var(--c-sky-1);
+  --color-sky-2: var(--c-sky-2);
+  --color-sky-3: var(--c-sky-3);
+
+  /* shadcn/ui 组件内部引用的语义名,桥接到同一套变量 */
+  --color-foreground: var(--c-text);
+  --color-card: var(--c-surface);
+  --color-card-foreground: var(--c-text);
+  --color-popover: var(--c-surface);
+  --color-popover-foreground: var(--c-text);
+  --color-secondary: var(--c-muted);
+  --color-secondary-foreground: var(--c-text);
+  --color-destructive: var(--c-danger);
+  --color-border: var(--c-border);
+  --color-input: var(--c-border);
+  --color-ring: var(--c-primary);
+}
+
+:root {
+  /* 晴空(浅色) */
+  --c-background: #eef5fc;
+  --c-surface: #ffffff;
+  --c-surface-strong: #f7fafd;
+  --c-border: #dbe5f0;
+  --c-primary: #2a5ca8;
+  --c-primary-fg: #ffffff;
+  --c-accent: #e8590c;
+  --c-accent-fg: #ffffff;
+  --c-muted: #e8eef6;
+  --c-muted-fg: #5b6b80;
+  --c-success: #2f9e44;
+  --c-warning: #b0741a;
+  --c-danger: #c92a2a;
+  --c-sky-1: #3d7fd9;
+  --c-sky-2: #7fb5ec;
+  --c-sky-3: #fdf2dd;
+  --c-text: #1c2430;
+}
+
+.dark {
+  /* 星夜(深色) */
+  --c-background: #0b1026;
+  --c-surface: #131b38;
+  --c-surface-strong: #1a2450;
+  --c-border: #26325c;
+  --c-primary: #7c9bff;
+  --c-primary-fg: #0b1026;
+  --c-accent: #fca311;
+  --c-accent-fg: #0b1026;
+  --c-muted: #1c2749;
+  --c-muted-fg: #9db0d0;
+  --c-success: #51cf66;
+  --c-warning: #ffc078;
+  --c-danger: #ff6b6b;
+  --c-sky-1: #0b1026;
+  --c-sky-2: #1a2450;
+  --c-sky-3: #2c3a70;
+  --c-text: #dfe7ff;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--c-background);
+  color: var(--c-text);
+}
+
+/* 尊重系统减弱动效偏好:动画与过渡降到近零 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

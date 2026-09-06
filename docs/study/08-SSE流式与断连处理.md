@@ -32,3 +32,9 @@ SSE(Server-Sent Events)是 HTTP 上的单向服务端推送:响应头 `text/even
 - [MDN: Using server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)
 - [Starlette: StreamingResponse](https://www.starlette.io/responses/#streamingresponse)——本项目 SSE 的载体
 - [asyncio.shield 文档](https://docs.python.org/3/library/asyncio-task.html#asyncio.shield)——保护任务 vs 保护 await 的语义差异
+
+---
+
+## 2026-09 更新:真流式下的时序变化
+
+本文"先持久化 → 再 yield citations → delta → done"的时序随真流式改造演进:持久化无法再先于流式(回答逐 token 生成中),改为循环事件经 `asyncio.Queue` 从后台任务转发给 SSE 生成器,citations 在首个 delta 前 flush(它来自工具轨迹,作答前已完整),持久化在流结束后一次写入。断连语义不变:取消只作用于 SSE 生成器,后台任务继续落库与计量;循环抛 `LLMError` 现在会转成 SSE `error` 事件而非静默断流。另外修正了一处潜在 bug:`set_rag_user` 原先在 `create_task` 之后才置入,contextvar 不会传给已创建的任务——现已移到任务创建前。见 [19-流式工具循环的决策与作答分离](19-流式工具循环的决策与作答分离.md)。

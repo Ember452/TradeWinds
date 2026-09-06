@@ -18,6 +18,7 @@ from tradewinds.agents.orchestrator.llm import (
 from tradewinds.agents.orchestrator.metering import UsageRecorder
 from tradewinds.agents.orchestrator.structured import StructuredRunner
 from tradewinds.agents.planner import Planner
+from tradewinds.agents.push_judge import PushJudge
 from tradewinds.agents.retriever import Retriever
 from tradewinds.core.config import Settings
 from tradewinds.tools.arxiv import ArxivClient
@@ -25,6 +26,7 @@ from tradewinds.tools.base import RateLimiter, SourceClient
 from tradewinds.tools.fetcher import Fetcher
 from tradewinds.tools.github import GithubClient
 from tradewinds.tools.hackernews import HackerNewsClient
+from tradewinds.tools.websearch import WebSearchClient
 
 
 @dataclass
@@ -39,6 +41,7 @@ class PipelineComponents:
     rate_limiter: RateLimiter
     http_client: httpx.AsyncClient
     embedder: Embedder | None
+    push_judge: PushJudge
 
 
 def build_pipeline_components(
@@ -59,6 +62,7 @@ def build_pipeline_components(
         ArxivClient(limiter, http_client),
         HackerNewsClient(limiter, http_client),
         GithubClient(limiter, http_client, token=settings.github_token),
+        WebSearchClient(limiter, http_client),
     ]
     return PipelineComponents(
         planner=Planner(runner),
@@ -70,6 +74,7 @@ def build_pipeline_components(
         fetcher=Fetcher(limiter, http_client),
         rate_limiter=limiter,
         http_client=http_client,
+        push_judge=PushJudge(runner, recorder=usage_recorder),
         embedder=(
             OpenAICompatibleEmbedder(
                 base_url=settings.llm_api_base,

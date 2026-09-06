@@ -2,13 +2,14 @@
 
 import hashlib
 import statistics
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tradewinds.agents.push_judge import ItemPushDecision
 from tradewinds.models.item import Item
 from tradewinds.models.push_log import PushLog, PushStatus, PushType
 from tradewinds.models.report import Report
@@ -115,9 +116,19 @@ class PushService:
         return log
 
     async def prepare_immediate(
-        self, topic: Topic, items: list[Item], *, suppress_hours: int, now: datetime | None = None
+        self,
+        topic: Topic,
+        items: list[Item],
+        *,
+        suppress_hours: int,
+        now: datetime | None = None,
+        judgements: Mapping[str, ItemPushDecision] | None = None,
     ) -> list[PushLog]:
-        """即时推送:逐条建 PushLog 并入队;同聚类 24h 内已推送则抑制,单条重复也不重推。"""
+        """即时推送:逐条建 PushLog 并入队;同聚类 24h 内已推送则抑制,单条重复也不重推。
+
+        judgements(PushJudge 判定表)非空时:判 skip 的条目建 skipped 记录留痕、
+        不入队(digest_key 去重同时避免同一 item 反复送判);照推的记录判定理由。
+        """
         now = now or datetime.now(UTC)
         user = await self._session.get(User, topic.user_id)
         if user is None:
@@ -138,6 +149,8 @@ class PushService:
             if existing is not None:
                 continue
 
+            decision = judgements.get(item.url) if judgements else None
+            judged_skip = decision is not None and not decision.push
             log = PushLog(
                 topic_id=topic.id,
                 user_id=topic.user_id,
@@ -145,13 +158,23 @@ class PushService:
                 digest_key=digest_key,
                 item_ids=[item.id],
                 recipient=user.email,
-                status=PushStatus.pending,
+                status=PushStatus.skipped if judged_skip else PushStatus.pending,
                 push_type=PushType.immediate,
                 cluster_key=item.cluster_key,
+                judge_reason=decision.reason if decision is not None else None,
             )
             self._session.add(log)
             await self._session.commit()
             await self._session.refresh(log)
+            if judged_skip:
+                logger.info(
+                    "immediate_push_judged_skip",
+                    push_log_id=log.id,
+                    topic_id=topic.id,
+                    item_id=item.id,
+                    reason=decision.reason if decision else "",
+                )
+                continue
             if self._dispatch is not None:
                 self._dispatch(log.id)
             created.append(log)

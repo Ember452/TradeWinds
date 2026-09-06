@@ -1,12 +1,12 @@
-"""ChatService 纯函数与并发限流单元测试。"""
+"""ChatService 纯函数与并发限流单元测试(引用提取/校验、限流)。"""
 
 import pytest
 
 from tradewinds.core.exceptions import TradeWindsError
 from tradewinds.services.chat_service import (
     UserConcurrencyLimiter,
-    chunk_text,
     extract_citations,
+    verify_citations,
 )
 
 
@@ -24,13 +24,49 @@ def test_extract_citations_dedupes_and_numbers() -> None:
     assert citations[1]["url"] == "https://b.example/2"
 
 
-def test_chunk_text_covers_all_content() -> None:
-    text = "x" * 250
+# --- 引用校验:越界编号剔除、持久化只保留实际引用 ---
 
-    chunks = chunk_text(text, size=100)
 
-    assert "".join(chunks) == text
-    assert len(chunks) == 3
+def test_verify_citations_keeps_valid_and_drops_uncited() -> None:
+    citations = [
+        {"index": 1, "url": "https://a.example/1"},
+        {"index": 2, "url": "https://b.example/2"},
+    ]
+
+    cleaned, kept = verify_citations("结论一 [1]。结论二 [2]。补充 [2]。", citations)
+
+    assert cleaned == "结论一 [1]。结论二 [2]。补充 [2]。"
+    assert [c["index"] for c in kept] == [1, 2]
+
+
+def test_verify_citations_strips_out_of_range_markers() -> None:
+    citations = [{"index": 1, "url": "https://a.example/1"}]
+
+    cleaned, kept = verify_citations("结论 [1]。幻觉 [9]。", citations)
+
+    assert cleaned == "结论 [1]。幻觉 。"
+    assert [c["index"] for c in kept] == [1]
+
+
+def test_verify_citations_keeps_only_cited_entries() -> None:
+    citations = [
+        {"index": 1, "url": "https://a.example/1"},
+        {"index": 2, "url": "https://b.example/2"},
+    ]
+
+    cleaned, kept = verify_citations("只用到了第二个来源 [2]。", citations)
+
+    assert cleaned == "只用到了第二个来源 [2]。"
+    assert [c["index"] for c in kept] == [2]
+
+
+def test_verify_citations_without_markers_persists_empty() -> None:
+    citations = [{"index": 1, "url": "https://a.example/1"}]
+
+    cleaned, kept = verify_citations("没有任何引用标记的回答。", citations)
+
+    assert cleaned == "没有任何引用标记的回答。"
+    assert kept == []
 
 
 async def test_limiter_allows_up_to_limit() -> None:

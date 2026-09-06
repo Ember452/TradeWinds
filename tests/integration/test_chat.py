@@ -1,7 +1,7 @@
-"""SSE 对话全链路集成测试:事件序、持久化(引用/轨迹)、并发限流。
+"""SSE 对话全链路集成测试:事件序、真流式增量、引用校验落库、并发限流。
 
 标记 integration:CI 起 PostgreSQL/Redis service 运行;ToolLoop 以假件
-替换(固定回答 + 带真实 URL 的工具轨迹)。
+替换(流式增量 + 带真实 URL 的工具轨迹,实现 run_streaming 契约)。
 """
 
 import os
@@ -12,32 +12,46 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tradewinds.agents.orchestrator.llm import ModelTier, Usage
-from tradewinds.agents.orchestrator.loop import LoopResult, ToolTrace
+from tradewinds.agents.orchestrator.loop import (
+    AnswerDeltaEvent,
+    LoopDoneEvent,
+    LoopResult,
+    ToolTrace,
+    ToolTraceEvent,
+)
 from tradewinds.api.app import create_app
 
 pytestmark = pytest.mark.integration
 
+_TOOL_TRACE = ToolTrace(
+    tool="search_arxiv",
+    arguments={"query": "agent"},
+    result="Paper A https://example.com/paper-a 摘要",
+)
+
 
 class FakeToolLoop:
+    """以 run_streaming 事件序回放:工具轨迹 → 作答增量 → 结束。"""
+
     model = ModelTier.mid
 
-    def __init__(self) -> None:
+    def __init__(self, content: str = "结论如下 [1]。") -> None:
         self.calls = 0
+        self._content = content
 
-    async def run(self, messages: list[Any]) -> LoopResult:
+    async def run_streaming(self, messages: list[Any]) -> Any:
         self.calls += 1
-        return LoopResult(
-            content="结论如下 [1]。",
-            tool_trace=[
-                ToolTrace(
-                    tool="search_arxiv",
-                    arguments={"query": "agent"},
-                    result="Paper A https://example.com/paper-a 摘要",
-                )
-            ],
-            iterations=2,
-            usage=Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
-            stopped_reason="completed",
+        yield ToolTraceEvent(trace=_TOOL_TRACE.model_copy())
+        for chunk in [self._content[:3], self._content[3:]]:
+            yield AnswerDeltaEvent(text=chunk)
+        yield LoopDoneEvent(
+            result=LoopResult(
+                content=self._content,
+                tool_trace=[_TOOL_TRACE.model_copy()],
+                iterations=2,
+                usage=Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
+                stopped_reason="completed",
+            )
         )
 
 
@@ -98,15 +112,16 @@ def test_sse_event_order_and_persistence(client: TestClient) -> None:
     events = _parse_sse(body)
     types = [t for t, _ in events]
 
-    # 事件序:citations 先行 → delta* → done
+    # 事件序:citations 先行 → delta*(真流式增量)→ done
     assert types[0] == "citations"
     assert "delta" in types
     assert types[-1] == "done"
     assert events[0][1]["citations"][0]["url"] == "https://example.com/paper-a"
     assert events[-1][1]["usage"]["total_tokens"] == 150
 
-    deltas = "".join(data["text"] for t, data in events if t == "delta")
-    assert "结论如下" in deltas
+    deltas = [data["text"] for t, data in events if t == "delta"]
+    assert len(deltas) >= 2  # 不再是整段单 delta
+    assert "".join(deltas) == "结论如下 [1]。"
 
     # 持久化:历史回看含 user + assistant 消息,引用与工具轨迹落库
     detail = client.get(f"/api/v1/conversations/{conv_id}", headers=headers).json()
@@ -136,3 +151,29 @@ def test_cross_user_conversation_is_404(client: TestClient) -> None:
     )
 
     assert resp.status_code == 404
+
+
+def test_citation_verification_cleans_invalid_and_uncited(client: TestClient) -> None:
+    """越界编号 [9] 从持久化内容剔除;引用列表只留实际引用的条目。"""
+    headers = _auth_headers(client)
+    conv_id = client.post("/api/v1/conversations", headers=headers, json={"title": "校验"}).json()[
+        "id"
+    ]
+
+    with client.stream(
+        "POST",
+        f"/api/v1/conversations/{conv_id}/messages",
+        headers=headers,
+        json={"content": "引用校验"},
+    ) as response:
+        assert response.status_code == 200
+        body = "".join(response.iter_text())
+
+    events = _parse_sse(body)
+    # 直播 citations 事件仍发全量来源列表(作答前无法预知引用集合)
+    assert events[0][1]["citations"][0]["url"] == "https://example.com/paper-a"
+
+    detail = client.get(f"/api/v1/conversations/{conv_id}", headers=headers).json()
+    assistant = detail["messages"][1]
+    assert assistant["content"] == "结论 [1]。幻觉 。"
+    assert [c["index"] for c in assistant["citations"]] == [1]
