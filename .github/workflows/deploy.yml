@@ -1,0 +1,51 @@
+# 部署流水线:main 推送 → 构建镜像推 GHCR → SSH 到 VPS 拉取并滚动重启 → 跑迁移
+# 需要的仓库 Secrets:DEPLOY_HOST、DEPLOY_USER、DEPLOY_SSH_KEY(GITHUB_TOKEN 自动提供)
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/${{ github.repository }}/tradewinds-api
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH 部署(先 pull 后切换,任一步失败即中断,不影响旧版本)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/tradewinds
+            docker compose -f docker-compose.yml -f deploy/compose.prod.yml pull api
+            docker compose -f docker-compose.yml -f deploy/compose.prod.yml run --rm api alembic upgrade head
+            docker compose -f docker-compose.yml -f deploy/compose.prod.yml up -d
