@@ -28,3 +28,6 @@ frontend/dist/
 
 # ZCode 本地计划文件
 .zcode/
+
+# 工具会话产物(brainstorm 可视化等,含端口/PID/token 等本机状态)
+.superpowers/
