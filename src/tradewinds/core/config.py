@@ -32,6 +32,11 @@ class Settings(BaseSettings):
         default=3600, description="注册/登录按 IP 限流:窗口秒数"
     )
 
+    # --- Agent 工具循环 ---
+    loop_max_iterations: int = Field(default=10, description="工具循环最大迭代轮数")
+    loop_total_timeout_seconds: float = Field(default=120.0, description="工具循环总超时(秒)")
+    loop_max_context_chars: int = Field(default=24000, description="工具循环上下文截断阈值(字符)")
+
     # --- 可观测 ---
     log_level: str = Field(default="INFO", description="日志级别")
 
