@@ -45,6 +45,18 @@ class Settings(BaseSettings):
         default=6.0, description="进 Editor 的评分下限,低于此值条目置 rejected(暂定值)"
     )
 
+    # --- 邮件推送 ---
+    app_base_url: str = Field(
+        default="http://localhost:8000", description="对外 base URL(退订链接用)"
+    )
+    email_enabled: bool = Field(default=False, description="是否启用邮件发送;关闭时推送记 skipped")
+    smtp_host: str = Field(default="", description="SMTP 主机;为空视为未配置")
+    smtp_port: int = Field(default=587, description="SMTP 端口")
+    smtp_user: str = Field(default="", description="SMTP 用户名")
+    smtp_password: str = Field(default="", description="SMTP 密码")
+    smtp_from: str = Field(default="", description="发件人地址")
+    smtp_start_tls: bool = Field(default=True, description="是否使用 STARTTLS")
+
     # --- 可观测 ---
     log_level: str = Field(default="INFO", description="日志级别")
 
