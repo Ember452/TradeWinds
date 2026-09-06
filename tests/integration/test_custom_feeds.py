@@ -19,7 +19,7 @@ from tradewinds.agents.retriever import Retriever
 from tradewinds.agents.schemas.item_digest import ItemDigest
 from tradewinds.agents.schemas.scored_item import AnalystOutput, ItemScore
 from tradewinds.api.app import create_app
-from tradewinds.tools.base import CandidateItem
+from tradewinds.tools.base import CandidateItem, is_seen
 
 pytestmark = pytest.mark.integration
 
@@ -71,7 +71,7 @@ class FakeSourceClient:
     async def search(
         self, plan: Any, *, topic_id: int, seen_hashes: set[str]
     ) -> list[CandidateItem]:
-        return [
+        candidates = [
             CandidateItem(
                 source="arxiv",
                 url=f"https://example.com/{MARKER}-paper",
@@ -80,6 +80,7 @@ class FakeSourceClient:
                 published_at=datetime.now(UTC),
             )
         ]
+        return [c for c in candidates if not is_seen(c.url, topic_id, seen_hashes)]
 
 
 class FakeRunner:
@@ -93,12 +94,15 @@ class FakeRunner:
         user_id: int | None = None,
     ) -> Any:
         if response_model is AnalystOutput:
-            # 只给自定义源条目评分,聚焦断言
+            # 默认源与自定义源条目都评分,两条都进 Feed
             return AnalystOutput(
                 items=[
                     ItemScore(
+                        url=f"https://example.com/{MARKER}-paper", score=8.0, cluster_key="p"
+                    ),
+                    ItemScore(
                         url=f"https://custom.example/{MARKER}-post", score=7.0, cluster_key="c"
-                    )
+                    ),
                 ]
             )
         if response_model is ItemDigest:

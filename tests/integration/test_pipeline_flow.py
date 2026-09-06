@@ -21,7 +21,7 @@ from tradewinds.agents.schemas.item_digest import ItemDigest
 from tradewinds.agents.schemas.scored_item import AnalystOutput, ItemScore
 from tradewinds.api.app import create_app
 from tradewinds.models.item import ItemStatus
-from tradewinds.tools.base import CandidateItem
+from tradewinds.tools.base import CandidateItem, is_seen
 
 pytestmark = pytest.mark.integration
 
@@ -65,7 +65,8 @@ class FakeSourceClient:
     async def search(
         self, plan: Any, *, topic_id: int, seen_hashes: set[str]
     ) -> list[CandidateItem]:
-        return CANDIDATES
+        # 与真实源客户端一致:按指纹集合做增量过滤
+        return [c for c in CANDIDATES if not is_seen(c.url, topic_id, seen_hashes)]
 
 
 class FakeRunner:

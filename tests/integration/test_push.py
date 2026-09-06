@@ -18,8 +18,8 @@ from tradewinds.agents.retriever import Retriever
 from tradewinds.agents.schemas.item_digest import ItemDigest
 from tradewinds.agents.schemas.scored_item import AnalystOutput, ItemScore
 from tradewinds.api.app import create_app
-from tradewinds.tasks.celery_app import celery_app
-from tradewinds.tools.base import CandidateItem
+from tradewinds.tasks.push_tasks import send_push
+from tradewinds.tools.base import CandidateItem, is_seen
 
 pytestmark = pytest.mark.integration
 
@@ -49,7 +49,7 @@ class FakeSourceClient:
     async def search(
         self, plan: Any, *, topic_id: int, seen_hashes: set[str]
     ) -> list[CandidateItem]:
-        return [
+        candidates = [
             CandidateItem(
                 source="arxiv",
                 url=f"https://example.com/{self._marker}-a",
@@ -58,6 +58,7 @@ class FakeSourceClient:
                 published_at=datetime.now(UTC),
             )
         ]
+        return [c for c in candidates if not is_seen(c.url, topic_id, seen_hashes)]
 
 
 class FakeRunner:
@@ -83,9 +84,12 @@ class FakeRunner:
 def client():
     if "TRADEWINDS_DATABASE_URL" not in os.environ:
         pytest.skip("需要 TRADEWINDS_DATABASE_URL 指向真实 PostgreSQL")
-    celery_app.conf.task_always_eager = True
     with TestClient(create_app()) as test_client:
         marker = uuid.uuid4().hex[:8]
+        # celery 的 send_task 不受 task_always_eager 影响,投递改为同步执行任务函数
+        test_client.app.state.push_dispatch = lambda push_log_id: send_push.apply(
+            args=[push_log_id]
+        )
 
         class PinnedSource(FakeSourceClient):
             async def search(
@@ -121,7 +125,6 @@ def client():
         app.state.analyst = Analyst(runner=PinnedRunner())  # type: ignore[arg-type]
         app.state.editor = Editor(runner=PinnedRunner())  # type: ignore[arg-type]
         yield test_client
-    celery_app.conf.task_always_eager = False
 
 
 def _auth_headers(client: TestClient) -> dict[str, str]:
@@ -156,7 +159,10 @@ def test_pipeline_run_creates_push_log_and_marks_status(
         try:
             async with engine.connect() as conn:
                 rows = await conn.execute(
-                    text("SELECT status, error, recipient FROM push_log WHERE topic_id = :t"),
+                    text(
+                        "SELECT status, error, recipient, push_type FROM push_log"
+                        " WHERE topic_id = :t"
+                    ),
                     {"t": topic_id},
                 )
                 return [dict(r._mapping) for r in rows]
@@ -164,10 +170,13 @@ def test_pipeline_run_creates_push_log_and_marks_status(
             await engine.dispose()
 
     logs = asyncio.run(_query())
-    assert len(logs) == 1
+    # 一次 run 产生三类推送:汇总邮件 + 高分即时 + 周期报告
+    digests = [log for log in logs if log["push_type"] == "digest"]
+    assert len(digests) == 1
     # SMTP 未配置 → 任务投递后标记 skipped,而非 pending 悬挂
-    assert logs[0]["status"] == "skipped"
-    assert logs[0]["recipient"].endswith("@example.com")
+    assert digests[0]["status"] == "skipped"
+    assert digests[0]["recipient"].endswith("@example.com")
+    assert all(log["status"] == "skipped" for log in logs)
 
 
 def test_same_content_not_pushed_twice(client: TestClient) -> None:
@@ -192,7 +201,9 @@ def test_same_content_not_pushed_twice(client: TestClient) -> None:
         try:
             async with engine.connect() as conn:
                 rows = await conn.execute(
-                    text("SELECT COUNT(*) FROM push_log WHERE topic_id = :t"),
+                    text(
+                        "SELECT COUNT(*) FROM push_log WHERE topic_id = :t AND push_type = 'digest'"
+                    ),
                     {"t": topic_id},
                 )
                 return int(rows.scalar_one())

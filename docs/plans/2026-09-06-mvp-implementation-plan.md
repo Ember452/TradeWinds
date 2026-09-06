@@ -320,3 +320,10 @@
 - 演示数据 seed:`tradewinds/demo_seed.py`(演示账号/主题/条目/报告/会话/点击/推送历史,幂等),`make seed`。
 - 前端静态托管:api 容器经 `mount_spa` 托管构建产物(TRADEWINDS_STATIC_DIR,Dockerfile 增 node 构建阶段);`make demo` 一键起全栈+迁移+seed。
 - 本机无 Docker:compose/集成链路未实跑,单测(190)与 lint/mypy 全绿,集成测试与 make demo 走查待 CI 或有 Docker 环境。
+
+**集成测试首次真实执行暴露的问题修复(2026-09-06,CI run #47-#50)**
+
+- 背景:integration job 此前被 Settings 缺配置/依赖下载超时挡在早期阶段,套件从未真正执行;首次跑通后逐轮暴露历史漂移与真实 bug,共四轮收敛(19 失败→12→最终全绿)。
+- 生产 bug:①openai 3.x 的 parse 不再接受 response_model,结构化输出(Planner/Analyst/Editor)整体失效,改 response_format + message.parsed;②Feed keyset 游标取 rows[limit](下一页首条)导致每页边界丢一条,改 rows[limit-1];③报告列表 item_count 为计算字段,from_attributes 直灌必 500,改显式构造;④SSE 会话归属校验在流开始后抛 404 无法回写状态码,前置到端点;⑤偏好画像 SELECT DISTINCT+ORDER BY 不符合 PG 约束,改 GROUP BY。
+- 测试修复:假件对齐 role/user_id 接口与 seen_hashes 增量语义;test_feed 漏替换 Planner;test_chat 假件 tier 用字符串、SSE 解析未按信封格式取 data;test_immediate_push 评分传字符串、自适应断言与夹具评分不符;test_push 断言未包含 report/immediate 推送类型;test_migrations 的 async 测试与 alembic 内部 asyncio.run 冲突,且 downgrade 会清空共享库,改为一次性独立数据库。
+- 推送投递机制认知:celery 的 send_task 不受 task_always_eager 影响,集成测试改为覆盖 app.state.push_dispatch 直接同步执行任务函数。

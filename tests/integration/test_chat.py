@@ -73,7 +73,9 @@ def _parse_sse(body: str) -> list[tuple[str, dict[str, Any]]]:
             elif line.startswith("data: "):
                 data = line[len("data: ") :]
         if event_type:
-            events.append((event_type, json.loads(data)))
+            # format_sse 的 data 是完整信封 {type, data},载荷在 data 键下(与前端解析一致)
+            payload = json.loads(data)
+            events.append((event_type, payload["data"]))
     return events
 
 

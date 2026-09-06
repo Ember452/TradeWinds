@@ -17,7 +17,7 @@ from tradewinds.agents.retriever import Retriever
 from tradewinds.agents.schemas.item_digest import ItemDigest
 from tradewinds.agents.schemas.scored_item import AnalystOutput, ItemScore
 from tradewinds.api.app import create_app
-from tradewinds.tools.base import CandidateItem
+from tradewinds.tools.base import CandidateItem, is_seen
 
 pytestmark = pytest.mark.integration
 
@@ -46,7 +46,7 @@ class FakeSourceClient:
     async def search(
         self, plan: Any, *, topic_id: int, seen_hashes: set[str]
     ) -> list[CandidateItem]:
-        return [
+        candidates = [
             CandidateItem(
                 source="arxiv",
                 url=f"https://example.com/{MARKER}-{i}",
@@ -56,6 +56,7 @@ class FakeSourceClient:
             )
             for i in range(2)
         ]
+        return [c for c in candidates if not is_seen(c.url, topic_id, seen_hashes)]
 
 
 class FakeRunner:

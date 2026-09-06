@@ -18,7 +18,7 @@ from tradewinds.agents.retriever import Retriever
 from tradewinds.agents.schemas.item_digest import ItemDigest
 from tradewinds.agents.schemas.scored_item import AnalystOutput, ItemScore
 from tradewinds.api.app import create_app
-from tradewinds.tasks.celery_app import celery_app
+from tradewinds.tasks.push_tasks import send_push
 from tradewinds.tools.base import CandidateItem
 
 pytestmark = pytest.mark.integration
@@ -88,15 +88,15 @@ class FakeRunner:
 def client():
     if "TRADEWINDS_DATABASE_URL" not in os.environ:
         pytest.skip("需要 TRADEWINDS_DATABASE_URL 指向真实 PostgreSQL")
-    celery_app.conf.task_always_eager = True
     with TestClient(create_app()) as test_client:
         app = test_client.app
+        # celery 的 send_task 不受 task_always_eager 影响,投递改为同步执行任务函数
+        app.state.push_dispatch = lambda push_log_id: send_push.apply(args=[push_log_id])
         app.state.planner = FakePlanner()
         app.state.retriever = Retriever([FakeSourceClient()])
         app.state.analyst = Analyst(runner=FakeRunner())  # type: ignore[arg-type]
         app.state.editor = Editor(runner=FakeRunner())  # type: ignore[arg-type]
         yield test_client
-    celery_app.conf.task_always_eager = False
 
 
 async def _seed_score_history(topic_id: int, score: float, count: int, marker: str) -> None:
@@ -220,5 +220,6 @@ def test_adaptive_threshold_suppresses_on_high_history(client: TestClient) -> No
             await engine.dispose()
 
     immediates = _aio.run(_immediates())
-    # FakeRunner 给 8.5 分,低于自适应阈值 9.0 → 即时推送被抑制
-    assert immediates == []
+    # 本文件 FakeRunner 给 item-0 9.0 / item-1 8.5:自适应阈值抬到 9.0 后
+    # 只有 9.0 触发,8.5 被抑制(全局阈值 8.0 会放行两条)→ 恰好 1 条
+    assert len(immediates) == 1
