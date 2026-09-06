@@ -316,3 +316,15 @@ button.secondary {
     gap: 8px;
   }
 }
+
+.share-page {
+  max-width: 720px;
+  margin: 24px auto;
+}
+
+.report-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+  line-height: 1.7;
+}

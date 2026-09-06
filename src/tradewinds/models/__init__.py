@@ -5,7 +5,18 @@ from tradewinds.models.conversation import Conversation, Message
 from tradewinds.models.item import Item
 from tradewinds.models.llm_usage import LLMUsageRecord
 from tradewinds.models.push_log import PushLog
+from tradewinds.models.report import Report
 from tradewinds.models.topic import Topic
 from tradewinds.models.user import User
 
-__all__ = ["Base", "Conversation", "Item", "LLMUsageRecord", "Message", "PushLog", "Topic", "User"]
+__all__ = [
+    "Base",
+    "Conversation",
+    "Item",
+    "LLMUsageRecord",
+    "Message",
+    "PushLog",
+    "Report",
+    "Topic",
+    "User",
+]

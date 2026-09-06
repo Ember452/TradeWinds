@@ -275,3 +275,10 @@
 - Task 5.4 上线验收清单(Sentry、告警演练、Lighthouse、在线地址回写 README)依赖 VPS/域名/Secrets,暂缓;部署流水线保持手动触发。
 - 主题计划预览的"修改"通过编辑描述/频率触发 Planner 重编译实现(API 不支持直接改 plan 字段,与后端契约一致)。
 - 前端 SSE 消费用 fetch 流式读取手动解析(POST + Authorization 头,EventSource 不适用);Feed 无限滚动配合后端 keyset 游标。
+
+**扩展计划执行(2026-09-06,commit f56bd10 起)**
+
+- 按扩展计划第一原则"由指标触发演进",仅执行阶段 0 必做件(纯代码部分)与 Agent 能力演进第一迭代(周期报告);阶段 1+(拆库/多实例/Prometheus/LLM 网关等)触发信号均未出现,明确不执行,待指标触发。
+- 阶段 0 必做件:Sentry 可选接入(api/worker/beat/前端,DSN 未配置零开销)、`GET /ops/summary` 指标出口(X-Ops-Token)、备份/恢复脚本与 runbook(告警阈值见 docs/runbook.md);备份异地归档与恢复演练需部署后执行。
+- 周期报告迭代(扩展计划 §3 第一项):Report 模型(0006 迁移,主题×周期唯一)、ReportService 幂等 upsert(条目按 created_at 落周期桶,每次 run 重算当期)、管道 run 后自动聚合、报告列表/详情/分享 API 与公开分享页(前端 /share/reports/:token)。
+- 周期报告的邮件推送(设计文档"频率到期时聚合并邮件推送")暂未接线:推送通道与退订已就绪,待 SMTP 配置上线后接入 send_push 任务(与汇总邮件共用 push 队列与 push_log)。

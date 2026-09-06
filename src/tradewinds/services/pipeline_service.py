@@ -15,6 +15,7 @@ from tradewinds.models.item import Item, ItemStatus
 from tradewinds.models.topic import Topic
 from tradewinds.services.item_service import create_pending_items, load_seen_hashes
 from tradewinds.services.push_service import PushService
+from tradewinds.services.report_service import ReportService
 from tradewinds.services.topic_service import schedule_after
 from tradewinds.tools.base import CandidateItem, SourceDegraded
 
@@ -39,6 +40,7 @@ class PipelineService:
         *,
         score_threshold: float,
         push_service: PushService | None = None,
+        report_service: ReportService | None = None,
     ) -> None:
         self._session = session
         self._retriever = retriever
@@ -46,6 +48,7 @@ class PipelineService:
         self._editor = editor
         self._score_threshold = score_threshold
         self._push_service = push_service
+        self._report_service = report_service
 
     async def run_topic(self, topic: Topic) -> PipelineResult:
         """手动/定时触发共用入口;重复 run 依赖指纹去重,不产生重复条目。"""
@@ -85,6 +88,8 @@ class PipelineService:
 
         if self._push_service is not None and accepted_items:
             await self._push_service.prepare_digest(topic, accepted_items)
+        if self._report_service is not None:
+            await self._report_service.upsert_period_report(topic, now=now)
 
         if collected.degraded:
             logger.warning(

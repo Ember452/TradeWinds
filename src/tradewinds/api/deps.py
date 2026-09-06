@@ -15,6 +15,7 @@ from tradewinds.services.chat_service import ChatService
 from tradewinds.services.pipeline_service import PipelineService
 from tradewinds.services.push_service import PushService
 from tradewinds.services.rate_limit_service import RateLimitService
+from tradewinds.services.report_service import ReportService
 from tradewinds.services.topic_service import TopicService
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -64,6 +65,7 @@ def get_pipeline_service(
         request.app.state.editor,
         score_threshold=settings.pipeline_score_threshold,
         push_service=push_service,
+        report_service=ReportService(session),
     )
 
 

@@ -10,6 +10,7 @@ from tradewinds.core.config import get_settings
 from tradewinds.core.database import create_engine, create_session_factory
 from tradewinds.models.topic import Topic
 from tradewinds.services.pipeline_service import PipelineService
+from tradewinds.services.report_service import ReportService
 from tradewinds.services.usage_service import SessionUsageRecorder
 from tradewinds.tasks.celery_app import PIPELINE_TASK, celery_app
 
@@ -47,6 +48,7 @@ async def _run_topic(topic_id: int) -> dict[str, object]:
                     components.analyst,
                     components.editor,
                     score_threshold=settings.pipeline_score_threshold,
+                    report_service=ReportService(session),
                 )
                 result = await pipeline.run_topic(topic)
             finally:

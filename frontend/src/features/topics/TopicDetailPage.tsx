@@ -147,8 +147,75 @@ export function TopicDetailPage() {
 
       <PlanPreview plan={topic.plan} />
 
+      <ReportsPanel topicId={id} />
+
       <Feed topicId={id} minScore={minScore} onMinScoreChange={setMinScore} />
     </div>
+  );
+}
+
+interface Report {
+  id: number;
+  period_type: "daily" | "weekly";
+  period_start: string;
+  period_end: string;
+  item_count: number;
+  content: string;
+}
+
+function ReportsPanel({ topicId }: { topicId: number }) {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    api<Report[]>(`/api/v1/topics/${topicId}/reports`)
+      .then(setReports)
+      .catch((err: ApiError) => setError(err.message));
+  }, [topicId]);
+  useEffect(load, [load]);
+
+  async function handleShare(reportId: number) {
+    try {
+      const result = await api<{ share_path: string }>(`/api/v1/reports/${reportId}/share`, {
+        method: "POST",
+      });
+      setShareLink(`${window.location.origin}${result.share_path}`);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "网络错误");
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>周期报告</h2>
+      {reports.length === 0 && <p className="meta">执行主题后自动按频率聚合生成日报/周报。</p>}
+      <ul className="feed-list">
+        {reports.map((report) => (
+          <li key={report.id} className="item-card">
+            <div className="item-head">
+              <strong>
+                {report.period_type === "weekly" ? "周报" : "日报"} ·{" "}
+                {report.period_start.slice(0, 10)}
+              </strong>
+              <span className="meta">{report.item_count} 条</span>
+            </div>
+            <div className="actions">
+              <button type="button" className="secondary" onClick={() => handleShare(report.id)}>
+                生成分享链接
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {shareLink && (
+        <p className="hint">
+          分享链接:<a href={shareLink} target="_blank" rel="noreferrer">{shareLink}</a>
+        </p>
+      )}
+      {error && <p className="error">{error}</p>}
+    </section>
   );
 }
 
