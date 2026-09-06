@@ -91,6 +91,32 @@ def client():
     celery_app.conf.task_always_eager = False
 
 
+async def _seed_score_history(topic_id: int, score: str, count: int, marker: str) -> None:
+    """直插 accepted 历史评分,构造"高分主题"画像。"""
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine(os.environ["TRADEWINDS_DATABASE_URL"])
+    try:
+        async with engine.begin() as conn:
+            for i in range(count):
+                await conn.execute(
+                    text(
+                        "INSERT INTO items (topic_id, source, url, url_hash, title, raw_content,"
+                        " score, cluster_key, status)"
+                        " VALUES (:t, 'arxiv', :url, :hash, 'h', 'c', :score, 'hot', 'accepted')"
+                    ),
+                    {
+                        "t": topic_id,
+                        "url": f"https://history.example/{marker}-{i}",
+                        "hash": f"{marker}-hist-{i}",
+                        "score": score,
+                    },
+                )
+    finally:
+        await engine.dispose()
+
+
 def _auth_headers(client: TestClient) -> dict[str, str]:
     email = f"imm-{uuid.uuid4().hex[:12]}@example.com"
     client.post("/api/v1/auth/register", json={"email": email, "password": "s3cret-password"})
@@ -147,3 +173,44 @@ def test_immediate_push_threshold_and_cluster_suppression(client: TestClient) ->
     client.post(f"/api/v1/topics/{topic_id}/run", headers=headers)
     logs_again = asyncio.run(_push_logs(topic_id))
     assert len(logs_again) == len(logs)
+
+
+def test_adaptive_threshold_suppresses_on_high_history(client: TestClient) -> None:
+    import asyncio
+
+    headers = _auth_headers(client)
+    topic_id = client.post(
+        "/api/v1/topics",
+        headers=headers,
+        json={"name": "高分主题", "description": "d", "cadence": "daily"},
+    ).json()["topic"]["id"]
+
+    # 冷启动基线:无历史时 8.5 分条目(阈值 8.0)会触发即时推送
+    asyncio.run(_seed_score_history(topic_id, "9.0", 12, uuid.uuid4().hex[:6]))
+    # 12 条 9.0 分历史 → 中位数 9.0 → 有效阈值抬到 9.0
+    run = client.post(f"/api/v1/topics/{topic_id}/run", headers=headers)
+    assert run.status_code == 200, run.text
+
+    import asyncio as _aio
+
+    from sqlalchemy import text as _text
+    from sqlalchemy.ext.asyncio import create_async_engine as _cae
+
+    async def _immediates() -> list[dict[str, Any]]:
+        engine = _cae(os.environ["TRADEWINDS_DATABASE_URL"])
+        try:
+            async with engine.connect() as conn:
+                rows = await conn.execute(
+                    _text(
+                        "SELECT digest_key FROM push_log WHERE topic_id = :t"
+                        " AND push_type = 'immediate'"
+                    ),
+                    {"t": topic_id},
+                )
+                return [dict(r._mapping) for r in rows]
+        finally:
+            await engine.dispose()
+
+    immediates = _aio.run(_immediates())
+    # FakeRunner 给 8.5 分,低于自适应阈值 9.0 → 即时推送被抑制
+    assert immediates == []
