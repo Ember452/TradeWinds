@@ -1,0 +1,212 @@
+[
+  {
+    "id": "agent-weekly",
+    "description": "近一周 AI Agent 领域的新技术进展",
+    "cadence": "weekly",
+    "model_output": {
+      "keywords": ["AI Agent", "agent framework", "tool use", "LLM agent", "智能体"],
+      "sources": ["arxiv", "hackernews", "github"],
+      "arxiv_categories": ["cs.AI", "cs.CL"],
+      "github": {"keywords": ["agent", "llm agent"], "language": null, "min_stars": null},
+      "window_days": 7,
+      "relevance_criteria": ["主题围绕 LLM Agent 的架构、工具调用或评测", "排除纯营销稿"]
+    },
+    "expect": {
+      "keywords_any": ["agent", "智能体"],
+      "keywords_min_matched": 2,
+      "sources_must_include": ["arxiv", "github"],
+      "window_days_max": 14,
+      "require_arxiv_categories": true,
+      "require_github_query": true
+    }
+  },
+  {
+    "id": "rag-daily",
+    "description": "RAG 检索增强生成技术的每日动态",
+    "cadence": "daily",
+    "model_output": {
+      "keywords": ["RAG", "retrieval augmented generation", "向量检索", "embedding"],
+      "sources": ["arxiv", "hackernews"],
+      "arxiv_categories": ["cs.IR", "cs.CL"],
+      "github": null,
+      "window_days": 3,
+      "relevance_criteria": ["涉及检索增强生成的算法、框架或评测"]
+    },
+    "expect": {
+      "keywords_any": ["rag", "retrieval"],
+      "keywords_min_matched": 2,
+      "sources_must_include": ["arxiv"],
+      "window_days_max": 7,
+      "require_arxiv_categories": true,
+      "require_github_query": false
+    }
+  },
+  {
+    "id": "quant-opensource",
+    "description": "量化交易相关的开源项目与新库",
+    "cadence": "weekly",
+    "model_output": {
+      "keywords": ["quantitative trading", "backtest", "algo trading", "量化交易"],
+      "sources": ["github", "web"],
+      "arxiv_categories": [],
+      "github": {"keywords": ["trading", "backtesting"], "language": "python", "min_stars": 100},
+      "window_days": 14,
+      "relevance_criteria": ["可直接使用的交易/回测开源库或重大版本发布"]
+    },
+    "expect": {
+      "keywords_any": ["trading", "quant", "量化"],
+      "keywords_min_matched": 2,
+      "sources_must_include": ["github"],
+      "window_days_max": 31,
+      "require_arxiv_categories": false,
+      "require_github_query": true
+    }
+  },
+  {
+    "id": "llm-security",
+    "description": "大模型安全:越狱、提示注入与防护进展",
+    "cadence": "daily",
+    "model_output": {
+      "keywords": ["LLM security", "jailbreak", "prompt injection", "提示注入", "越狱"],
+      "sources": ["arxiv", "hackernews"],
+      "arxiv_categories": ["cs.CR", "cs.CL"],
+      "github": null,
+      "window_days": 2,
+      "relevance_criteria": ["涉及针对 LLM 的攻击手法、评测或防御机制"]
+    },
+    "expect": {
+      "keywords_any": ["jailbreak", "injection", "注入", "越狱", "security"],
+      "keywords_min_matched": 2,
+      "sources_must_include": ["arxiv"],
+      "window_days_max": 7,
+      "require_arxiv_categories": true,
+      "require_github_query": false
+    }
+  },
+  {
+    "id": "frontend-weekly",
+    "description": "主流前端框架(React/Vue/Svelte)的重要版本与生态动态",
+    "cadence": "weekly",
+    "model_output": {
+      "keywords": ["React", "Vue", "Svelte", "frontend framework", "前端框架"],
+      "sources": ["hackernews", "web", "github"],
+      "arxiv_categories": [],
+      "github": {"keywords": ["frontend framework"], "language": null, "min_stars": null},
+      "window_days": 7,
+      "relevance_criteria": ["框架大版本发布、破坏性变更或重要生态工具"]
+    },
+    "expect": {
+      "keywords_any": ["react", "vue", "svelte", "frontend"],
+      "keywords_min_matched": 3,
+      "sources_must_include": ["hackernews"],
+      "window_days_max": 14,
+      "require_arxiv_categories": false,
+      "require_github_query": true
+    }
+  },
+  {
+    "id": "vector-db",
+    "description": "向量数据库与 ANN 检索引擎的新发布与基准测试",
+    "cadence": "daily",
+    "model_output": {
+      "keywords": ["vector database", "ANN search", "HNSW", "向量数据库", "Milvus", "Qdrant"],
+      "sources": ["github", "hackernews"],
+      "arxiv_categories": [],
+      "github": {"keywords": ["vector database", "ann"], "language": null, "min_stars": 500},
+      "window_days": 5,
+      "relevance_criteria": ["向量库发布新版本、基准结果或重要工程实践"]
+    },
+    "expect": {
+      "keywords_any": ["vector", "向量", "ann"],
+      "keywords_min_matched": 2,
+      "sources_must_include": ["github"],
+      "window_days_max": 7,
+      "require_arxiv_categories": false,
+      "require_github_query": true
+    }
+  },
+  {
+    "id": "ai-chip",
+    "description": "AI 芯片与算力基础设施的行业新闻",
+    "cadence": "daily",
+    "model_output": {
+      "keywords": ["AI chip", "GPU", "TPU", "NPU", "算力"],
+      "sources": ["web"],
+      "arxiv_categories": [],
+      "github": null,
+      "window_days": 3,
+      "relevance_criteria": ["芯片发布、产能、数据中心算力供给的权威报道"]
+    },
+    "expect": {
+      "keywords_any": ["chip", "gpu", "tpu", "算力"],
+      "keywords_min_matched": 2,
+      "sources_must_include": ["web"],
+      "window_days_max": 7,
+      "require_arxiv_categories": false,
+      "require_github_query": false
+    }
+  },
+  {
+    "id": "microservices",
+    "description": "微服务架构与服务网格的工程实践文章",
+    "cadence": "weekly",
+    "model_output": {
+      "keywords": ["microservices", "service mesh", "微服务", "服务网格", "kubernetes"],
+      "sources": ["hackernews", "web"],
+      "arxiv_categories": [],
+      "github": null,
+      "window_days": 10,
+      "relevance_criteria": ["一线团队的架构实践、故障复盘或权威基准"]
+    },
+    "expect": {
+      "keywords_any": ["microservice", "service mesh", "微服务"],
+      "keywords_min_matched": 2,
+      "sources_must_include": ["hackernews"],
+      "window_days_max": 14,
+      "require_arxiv_categories": false,
+      "require_github_query": false
+    }
+  },
+  {
+    "id": "multimodal",
+    "description": "多模态大模型(视觉-语言)论文与发布",
+    "cadence": "daily",
+    "model_output": {
+      "keywords": ["multimodal", "vision language model", "VLM", "多模态"],
+      "sources": ["arxiv", "hackernews"],
+      "arxiv_categories": ["cs.CV", "cs.CL"],
+      "github": null,
+      "window_days": 2,
+      "relevance_criteria": ["新的多模态模型、训练方法或评测基准"]
+    },
+    "expect": {
+      "keywords_any": ["multimodal", "vision", "vlm", "多模态"],
+      "keywords_min_matched": 2,
+      "sources_must_include": ["arxiv"],
+      "window_days_max": 7,
+      "require_arxiv_categories": true,
+      "require_github_query": false
+    }
+  },
+  {
+    "id": "rust-game-engine",
+    "description": "Rust 生态游戏引擎与图形学开源项目",
+    "cadence": "weekly",
+    "model_output": {
+      "keywords": ["Rust game engine", "Bevy", "wgpu", "图形学"],
+      "sources": ["github", "hackernews"],
+      "arxiv_categories": [],
+      "github": {"keywords": ["rust game engine", "bevy"], "language": "rust", "min_stars": null},
+      "window_days": 14,
+      "relevance_criteria": ["Rust 游戏引擎/渲染库的版本发布或里程碑"]
+    },
+    "expect": {
+      "keywords_any": ["rust", "bevy", "wgpu"],
+      "keywords_min_matched": 2,
+      "sources_must_include": ["github"],
+      "window_days_max": 31,
+      "require_arxiv_categories": false,
+      "require_github_query": true
+    }
+  }
+]
