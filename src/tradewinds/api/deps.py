@@ -12,6 +12,7 @@ from tradewinds.core.security import decode_access_token
 from tradewinds.models.user import User
 from tradewinds.services.auth_service import AuthService
 from tradewinds.services.pipeline_service import PipelineService
+from tradewinds.services.push_service import PushService
 from tradewinds.services.rate_limit_service import RateLimitService
 from tradewinds.services.topic_service import TopicService
 
@@ -49,12 +50,19 @@ def get_pipeline_service(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> PipelineService:
+    push_service = PushService(
+        session,
+        request.app.state.email_channel,
+        app_base_url=settings.app_base_url,
+        dispatch=request.app.state.push_dispatch,
+    )
     return PipelineService(
         session,
         request.app.state.retriever,
         request.app.state.analyst,
         request.app.state.editor,
         score_threshold=settings.pipeline_score_threshold,
+        push_service=push_service,
     )
 
 

@@ -120,6 +120,17 @@ async def delete_topic(
     return MessageResponse(message="已删除")
 
 
+@router.post("/{topic_id}/mute", response_model=TopicRead)
+async def mute_topic(
+    topic_id: int,
+    current_user: User = Depends(get_current_user),
+    topic_service: TopicService = Depends(get_topic_service),
+) -> TopicRead:
+    """退订:暂停该主题的定时执行与推送(Feed 保留)。"""
+    topic = await topic_service.update(current_user.id, topic_id, status=TopicStatus.muted)
+    return _to_read(topic)
+
+
 @router.post("/{topic_id}/run", response_model=PipelineRunRead)
 async def run_topic(
     topic_id: int,

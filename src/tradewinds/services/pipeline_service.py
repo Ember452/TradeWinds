@@ -14,6 +14,7 @@ from tradewinds.core.exceptions import TradeWindsError
 from tradewinds.models.item import Item, ItemStatus
 from tradewinds.models.topic import Topic
 from tradewinds.services.item_service import create_pending_items, load_seen_hashes
+from tradewinds.services.push_service import PushService
 from tradewinds.services.topic_service import schedule_after
 from tradewinds.tools.base import CandidateItem, SourceDegraded
 
@@ -37,12 +38,14 @@ class PipelineService:
         editor: Editor,
         *,
         score_threshold: float,
+        push_service: PushService | None = None,
     ) -> None:
         self._session = session
         self._retriever = retriever
         self._analyst = analyst
         self._editor = editor
         self._score_threshold = score_threshold
+        self._push_service = push_service
 
     async def run_topic(self, topic: Topic) -> PipelineResult:
         """手动/定时触发共用入口;重复 run 依赖指纹去重,不产生重复条目。"""
@@ -52,6 +55,7 @@ class PipelineService:
         new_items = await create_pending_items(self._session, topic.id, collected.items)
 
         accepted = rejected = 0
+        accepted_items: list[Item] = []
         if new_items:
             candidates = [_to_candidate(item) for item in new_items]
             scored = await self._analyst.score(candidates, topic)
@@ -69,6 +73,7 @@ class PipelineService:
                     db_item.reason = digest.reason
                     db_item.status = ItemStatus.accepted
                     accepted += 1
+                    accepted_items.append(db_item)
                 else:
                     db_item.status = ItemStatus.rejected
                     rejected += 1
@@ -77,6 +82,9 @@ class PipelineService:
         topic.last_run_at = now
         topic.next_run_at = schedule_after(topic, now=now)
         await self._session.commit()
+
+        if self._push_service is not None and accepted_items:
+            await self._push_service.prepare_digest(topic, accepted_items)
 
         if collected.degraded:
             logger.warning(
