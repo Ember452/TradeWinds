@@ -1,0 +1,21 @@
+{
+  "total_count": 2,
+  "items": [
+    {
+      "html_url": "https://github.com/example/agent-kit",
+      "full_name": "example/agent-kit",
+      "description": "A toolkit for building LLM agents.",
+      "pushed_at": "2026-09-05T00:00:00Z",
+      "stargazers_count": 1234,
+      "language": "Python"
+    },
+    {
+      "html_url": "https://github.com/example/old-repo",
+      "full_name": "example/old-repo",
+      "description": "Stale repo pushed long ago.",
+      "pushed_at": "2026-01-01T00:00:00Z",
+      "stargazers_count": 9999,
+      "language": "Rust"
+    }
+  ]
+}

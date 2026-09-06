@@ -1,0 +1,22 @@
+{
+  "hits": [
+    {
+      "objectID": "35000001",
+      "title": "Show HN: A new agent framework",
+      "url": "https://example.com/agent-framework?utm_source=news",
+      "created_at": "2026-09-05T10:00:00Z",
+      "points": 128,
+      "author": "hacker1",
+      "story_text": null
+    },
+    {
+      "objectID": "35000002",
+      "title": "Ask HN: Best practices for evals?",
+      "url": null,
+      "created_at": "2026-09-04T09:00:00Z",
+      "points": 45,
+      "author": "hacker2",
+      "story_text": "We are building an eval pipeline and want advice."
+    }
+  ]
+}
