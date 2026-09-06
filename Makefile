@@ -1,4 +1,4 @@
-.PHONY: lint fmt type test test-all dev migrate up down worker beat frontend
+.PHONY: lint fmt type test test-all dev migrate up down worker beat frontend backup restore
 
 lint:
 	uv run ruff check .
@@ -37,3 +37,9 @@ beat:
 
 frontend:
 	cd frontend && npm run dev
+
+backup:
+	./deploy/backup.sh
+
+restore:
+	./deploy/restore.sh $(file)

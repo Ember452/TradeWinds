@@ -15,6 +15,7 @@ from tradewinds.api.health import router as health_router
 from tradewinds.api.v1 import api_v1_router
 from tradewinds.core.config import get_settings
 from tradewinds.core.database import create_engine, create_session_factory
+from tradewinds.core.error_tracking import init_error_tracking
 from tradewinds.core.logging import setup_logging
 from tradewinds.core.redis_client import create_redis_client
 from tradewinds.push.email_channel import EmailChannel, EmailChannelConfig
@@ -27,6 +28,7 @@ from tradewinds.tasks.celery_app import PUSH_TASK, celery_app, configure_broker
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     setup_logging(settings.log_level)
+    init_error_tracking(settings)
 
     engine = create_engine(settings.database_url)
     app.state.session_factory = create_session_factory(engine)

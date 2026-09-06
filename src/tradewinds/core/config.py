@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     # --- 对话 Agent ---
     chat_concurrency_limit: int = Field(default=3, description="每用户并发对话数上限")
 
+    # --- 错误上报 / 运维 ---
+    sentry_dsn: str | None = Field(default=None, description="Sentry DSN,未配置则不启用错误上报")
+    sentry_environment: str = Field(default="production", description="Sentry 环境标识")
+    ops_token: str | None = Field(
+        default=None, description="运维指标接口(/ops/summary)的 X-Ops-Token;未配置则接口关闭"
+    )
+
     # --- 邮件推送 ---
     app_base_url: str = Field(
         default="http://localhost:8000", description="对外 base URL(退订链接用)"
