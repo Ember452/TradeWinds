@@ -131,8 +131,15 @@ class LLMProvider(Protocol):
 # agents/orchestrator/loop.py —— 工具循环（Retriever 对话模式的核心）
 class ToolLoop:
     def __init__(self, provider: LLMProvider, tools: ToolRegistry, *,
-                 max_iterations: int = 10, total_timeout: float = 120.0): ...
+                 model: ModelTier = ModelTier.low,
+                 max_iterations: int = 10, total_timeout: float = 120.0,
+                 max_context_chars: int = 24_000): ...
     async def run(self, messages: list[Message]) -> LoopResult: ...
+
+# agents/orchestrator/structured.py —— 结构化输出执行器
+class StructuredRunner:
+    async def run(self, prompt: str, response_model: type[T], *,
+                  model: ModelTier) -> T: ...
 
 # tools/base.py —— 所有信息源客户端同构，新增源=新增一个实现
 class SourceClient(Protocol):
