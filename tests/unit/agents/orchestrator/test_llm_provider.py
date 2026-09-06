@@ -165,7 +165,7 @@ async def test_non_retryable_error_raises_immediately(monkeypatch) -> None:
     assert len(completions.calls) == 1
 
 
-async def test_stream_yields_deltas(monkeypatch) -> None:
+async def test_stream_yields_deltas_and_final_usage(monkeypatch) -> None:
     monkeypatch.setattr("tradewinds.agents.orchestrator.llm.asyncio.sleep", None)
     deltas = [
         type(
@@ -178,6 +178,15 @@ async def test_stream_yields_deltas(monkeypatch) -> None:
             (),
             {"choices": [type("C", (), {"delta": type("D", (), {"content": "llo"})()})()]},
         )(),
+        # include_usage 的收尾块:无 choices,只带 usage
+        type(
+            "Chunk",
+            (),
+            {
+                "choices": [],
+                "usage": type("U", (), {"prompt_tokens": 3, "completion_tokens": 4})(),
+            },
+        )(),
     ]
 
     async def _gen() -> Any:
@@ -187,13 +196,45 @@ async def test_stream_yields_deltas(monkeypatch) -> None:
     completions = FakeCompletions([_gen()])
     provider = _provider(completions)
 
-    chunks = [
-        chunk
-        async for chunk in provider.stream(
+    events = [
+        event
+        async for event in provider.stream(
             [Message(role="user", content="hi")], model=ModelTier.mid
         )
     ]
 
-    assert chunks == ["he", "llo"]
+    assert [e.delta for e in events] == ["he", "llo", ""]
+    assert events[-1].usage is not None and events[-1].usage.total_tokens == 7
     assert completions.calls[0]["model"] == "test-mid"
     assert completions.calls[0]["stream"] is True
+    assert completions.calls[0]["stream_options"] == {"include_usage": True}
+
+
+async def test_stream_falls_back_when_stream_options_rejected(monkeypatch) -> None:
+    monkeypatch.setattr("tradewinds.agents.orchestrator.llm.asyncio.sleep", None)
+    request = httpx.Request("POST", "https://llm.test/v1/chat/completions")
+    rejected = openai.BadRequestError(
+        "stream_options unsupported", response=httpx.Response(400, request=request), body=None
+    )
+
+    async def _gen() -> Any:
+        chunk = type(
+            "Chunk",
+            (),
+            {"choices": [type("C", (), {"delta": type("D", (), {"content": "ok"})()})()]},
+        )()
+        yield chunk
+
+    completions = FakeCompletions([rejected, _gen()])
+    provider = _provider(completions)
+
+    events = [
+        event
+        async for event in provider.stream(
+            [Message(role="user", content="hi")], model=ModelTier.mid
+        )
+    ]
+
+    assert [e.delta for e in events] == ["ok"]
+    # 第二次调用不再携带 stream_options
+    assert "stream_options" not in completions.calls[1]

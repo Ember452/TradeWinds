@@ -2,7 +2,7 @@
 
 架构契约(architecture.md 第 5 节):
     complete(messages, model=ModelTier, response_model=None) -> LLMResult[T]
-    stream(messages, model=ModelTier) -> AsyncIterator[str]
+    stream(messages, model=ModelTier) -> AsyncIterator[StreamEvent]
 """
 
 import asyncio
@@ -48,6 +48,16 @@ class LLMResult(BaseModel):
     usage: Usage
 
 
+class StreamEvent(BaseModel):
+    """流式事件:delta 为文本增量;usage 仅出现在最后一个事件(供应商支持时)。
+
+    供应商不支持 stream_options.include_usage 时 usage 为 None,调用方按 0 计量。
+    """
+
+    delta: str = ""
+    usage: Usage | None = None
+
+
 class LLMProvider(Protocol):
     async def complete(
         self,
@@ -57,7 +67,9 @@ class LLMProvider(Protocol):
         response_model: type[BaseModel] | None = None,
     ) -> LLMResult: ...
 
-    def stream(self, messages: list[Message], *, model: ModelTier) -> AsyncIterator[str]: ...
+    def stream(
+        self, messages: list[Message], *, model: ModelTier
+    ) -> AsyncIterator[StreamEvent]: ...
 
 
 _RETRYABLE = (openai.RateLimitError, openai.APIConnectionError, openai.InternalServerError)
@@ -135,12 +147,32 @@ class OpenAICompatibleProvider:
 
         raise LLMError(f"LLM 调用失败(已重试 {_MAX_RETRIES} 次):{last_error}")
 
-    async def stream(self, messages: list[Message], *, model: ModelTier) -> AsyncIterator[str]:
-        """流式输出 content 增量。流中途失败不重试(已发出的增量无法撤回)。"""
-        raw_stream = await self._client.chat.completions.create(
-            model=self._model_name(model), messages=_message_dicts(messages), stream=True
-        )
+    async def stream(
+        self, messages: list[Message], *, model: ModelTier
+    ) -> AsyncIterator[StreamEvent]:
+        """流式输出文本增量,最后一个事件尽量带 usage。
+
+        流中途失败不重试(已发出的增量无法撤回);供应商不认
+        stream_options 时去掉该参数重试一次,代价是拿不到 usage。
+        """
+        model_name = self._model_name(model)
+        try:
+            raw_stream = await self._client.chat.completions.create(
+                model=model_name,
+                messages=_message_dicts(messages),
+                stream=True,
+                stream_options={"include_usage": True},
+            )
+        except openai.BadRequestError:
+            raw_stream = await self._client.chat.completions.create(
+                model=model_name, messages=_message_dicts(messages), stream=True
+            )
         async for chunk in raw_stream:
+            if not chunk.choices:
+                # include_usage 的收尾块只带 usage,无 choices
+                if chunk.usage is not None:
+                    yield StreamEvent(usage=_usage_of(chunk.usage))
+                continue
             delta = chunk.choices[0].delta.content
             if delta:
-                yield delta
+                yield StreamEvent(delta=delta)

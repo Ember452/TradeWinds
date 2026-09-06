@@ -1,7 +1,8 @@
 """对话服务:会话 CRUD、消息持久化、SSE 对话(ChatService)。
 
-事件序:citations 先行 → delta* → done;循环与持久化在独立任务中完成,
-客户端中途断连时回答/引用/用量仍完整落库(study 08)。
+事件序:citations 先行 → delta* → done;循环跑在独立任务中,事件经队列转发,
+客户端中途断连时回答/引用/用量仍完整落库(study 08);循环异常转 SSE error
+事件而非静默断流。作答为真·流式(决策+作答两阶段循环,study 19)。
 """
 
 import asyncio
@@ -10,21 +11,31 @@ from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from typing import Any
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tradewinds.agents.orchestrator.llm import Message, Role
-from tradewinds.agents.orchestrator.loop import LoopResult, ToolLoop, ToolTrace
+from tradewinds.agents.orchestrator.loop import (
+    AnswerDeltaEvent,
+    LoopDoneEvent,
+    LoopResult,
+    ToolLoop,
+    ToolTrace,
+    ToolTraceEvent,
+)
 from tradewinds.agents.orchestrator.metering import UsageRecorder
 from tradewinds.agents.orchestrator.sse import SSEEvent
-from tradewinds.core.exceptions import NotFoundError, TradeWindsError
+from tradewinds.core.exceptions import LLMError, NotFoundError, TradeWindsError
 from tradewinds.models.conversation import Conversation, MessageRole
 from tradewinds.models.conversation import Message as MessageModel
 from tradewinds.models.user import User
 from tradewinds.services.rag_service import set_rag_user
 
+logger = structlog.get_logger(__name__)
+
 _CITATION_URL_PATTERN = re.compile(r"https?://[^\s)\"'>\]]+")
-_DELTA_CHUNK_CHARS = 80
+_CITED_INDEX_PATTERN = re.compile(r"\[(\d{1,2})\]")
 _LIMIT_NOTE = "\n\n(说明:受单轮工具调用次数或总时长限制,以上回答基于已获取的部分信息。)"
 
 
@@ -47,9 +58,7 @@ class ConversationService:
 
     async def list_all(self, user_id: int) -> list[Conversation]:
         result = await self._session.scalars(
-            select(Conversation)
-            .where(Conversation.user_id == user_id)
-            .order_by(Conversation.created_at.desc())
+            select(Conversation).where(Conversation.user_id == user_id)
         )
         return list(result)
 
@@ -107,9 +116,23 @@ def extract_citations(
     return citations
 
 
-def chunk_text(text: str, size: int = _DELTA_CHUNK_CHARS) -> list[str]:
-    """把完整回答切成 delta 片段;SSE 层先发 citations 再发 delta。"""
-    return [text[i : i + size] for i in range(0, len(text), size)]
+def verify_citations(
+    answer: str, citations: list[dict[str, Any]]
+) -> tuple[str, list[dict[str, Any]]]:
+    """校验回答中的 [n] 编号:剔除越界标记,持久化只保留实际被引用的条目。
+
+    SSE 的 citations 事件发全量来源列表(作答开始前无法预知引用集合),
+    持久化按实际引用收敛,刷新后视图与回答一致;编号合法但内容无中生有
+    的引用无法在代码层检测(prompt 层约束,见 study 19)。
+    """
+    valid = {c["index"] for c in citations}
+
+    def _drop_invalid(match: re.Match[str]) -> str:
+        return match.group(0) if int(match.group(1)) in valid else ""
+
+    cleaned = _CITED_INDEX_PATTERN.sub(_drop_invalid, answer)
+    cited = {int(m.group(1)) for m in _CITED_INDEX_PATTERN.finditer(cleaned)}
+    return cleaned, [c for c in citations if c["index"] in cited]
 
 
 class UserConcurrencyLimiter:
@@ -139,7 +162,7 @@ class UserConcurrencyLimiter:
 
 
 class ChatService:
-    """对话研究:工具循环 + 引用/轨迹持久化 + SSE 事件流。"""
+    """对话研究:流式工具循环 + 引用/轨迹持久化 + SSE 事件流。"""
 
     def __init__(
         self,
@@ -180,43 +203,91 @@ class ChatService:
         messages = [Message(role=Role.system, content=self._system_prompt)]
         messages += [Message(role=Role(m.role.value), content=m.content) for m in history]
 
-        task = asyncio.create_task(self._run_and_persist(conversation.id, user_id, messages))
+        queue: asyncio.Queue[SSEEvent | None] = asyncio.Queue()
+        with set_rag_user(user_id):
+            # create_task 复制当前 context:RAG 用户标识须在任务创建前置入
+            task = asyncio.create_task(
+                self._stream_and_persist(conversation.id, user_id, messages, queue)
+            )
         try:
-            with set_rag_user(user_id):
-                result, citations = await asyncio.shield(task)
+            while True:
+                event = await queue.get()
+                if event is None:
+                    break
+                yield event
+            await task  # 正常结束:回收任务内异常(DB 错误等)保持向上抛语义
         except asyncio.CancelledError:
-            # 客户端断连:后台任务继续完成持久化与计量(不丢引用)
+            # 客户端断连:后台任务继续完成持久化与计量(不丢引用,study 08)
             raise
 
-        yield SSEEvent(type="citations", data={"citations": citations})
+    async def _stream_and_persist(
+        self,
+        conversation_id: int,
+        user_id: int,
+        messages: list[Message],
+        queue: asyncio.Queue[SSEEvent | None],
+    ) -> None:
+        """消费循环事件转 SSE 入队,结束后校验引用并持久化;不因客户端断连中断。"""
+        try:
+            traces: list[ToolTrace] = []
+            citations_sent = False
+            result: LoopResult | None = None
 
-        answer = result.content
-        if result.stopped_reason != "completed":
-            answer += _LIMIT_NOTE
-        for chunk in chunk_text(answer):
-            yield SSEEvent(type="delta", data={"text": chunk})
+            async def emit_delta(text: str) -> None:
+                nonlocal citations_sent
+                if not citations_sent:
+                    citations_sent = True
+                    await queue.put(
+                        SSEEvent(type="citations", data={"citations": extract_citations(traces)})
+                    )
+                await queue.put(SSEEvent(type="delta", data={"text": text}))
 
-        yield SSEEvent(
-            type="done",
-            data={
-                "usage": result.usage.model_dump(),
-                "iterations": result.iterations,
-                "stopped_reason": result.stopped_reason,
-            },
-        )
+            try:
+                async for event in self._tool_loop.run_streaming(messages):
+                    if isinstance(event, ToolTraceEvent):
+                        traces.append(event.trace)
+                    elif isinstance(event, AnswerDeltaEvent):
+                        await emit_delta(event.text)
+                    elif isinstance(event, LoopDoneEvent):
+                        result = event.result
+            except LLMError as exc:
+                await queue.put(
+                    SSEEvent(type="error", data={"code": "llm_failed", "message": str(exc)})
+                )
+                return
 
-    async def _run_and_persist(
-        self, conversation_id: int, user_id: int, messages: list[Message]
-    ) -> tuple[LoopResult, list[dict[str, Any]]]:
-        result = await self._tool_loop.run(messages)
-        citations = extract_citations(result.tool_trace)
-        await self._conversations.add_message(
-            conversation_id,
-            role=MessageRole.assistant,
-            content=result.content,
-            citations=citations,
-            tool_trace=[trace.model_dump() for trace in result.tool_trace],
-        )
-        if self._recorder is not None:
-            await self._recorder.record(user_id, "chat", self._tool_loop.model, result.usage)
-        return result, citations
+            assert result is not None
+            answer = result.content
+            if result.stopped_reason != "completed":
+                answer += _LIMIT_NOTE
+            if answer:
+                await emit_delta(answer)
+            if not citations_sent:
+                await queue.put(
+                    SSEEvent(type="citations", data={"citations": extract_citations(traces)})
+                )
+            await queue.put(
+                SSEEvent(
+                    type="done",
+                    data={
+                        "usage": result.usage.model_dump(),
+                        "iterations": result.iterations,
+                        "stopped_reason": result.stopped_reason,
+                    },
+                )
+            )
+
+            cleaned, kept = verify_citations(result.content, extract_citations(result.tool_trace))
+            if cleaned != result.content:
+                logger.warning("citation_invalid_reference", conversation_id=conversation_id)
+            await self._conversations.add_message(
+                conversation_id,
+                role=MessageRole.assistant,
+                content=cleaned,
+                citations=kept,
+                tool_trace=[trace.model_dump() for trace in result.tool_trace],
+            )
+            if self._recorder is not None:
+                await self._recorder.record(user_id, "chat", self._tool_loop.model, result.usage)
+        finally:
+            await queue.put(None)
