@@ -2,8 +2,9 @@
 
 from tradewinds.models.base import Base
 from tradewinds.models.item import Item
+from tradewinds.models.llm_usage import LLMUsageRecord
 from tradewinds.models.push_log import PushLog
 from tradewinds.models.topic import Topic
 from tradewinds.models.user import User
 
-__all__ = ["Base", "Item", "PushLog", "Topic", "User"]
+__all__ = ["Base", "Item", "LLMUsageRecord", "PushLog", "Topic", "User"]
