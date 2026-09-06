@@ -25,3 +25,6 @@ htmlcov/
 # 前端
 node_modules/
 frontend/dist/
+
+# ZCode 本地计划文件
+.zcode/
