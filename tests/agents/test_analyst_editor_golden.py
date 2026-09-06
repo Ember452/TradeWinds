@@ -36,7 +36,7 @@ def _assert_analyst_expectations(case: dict[str, Any]) -> None:
         assert len(clusters) == 1, f"同一事件的聚类键应一致,实际:{clusters}"
 
     if expect.get("coverage") == "all_inputs_in_output":
-        assert expect["url"] in items, "输入条目必须出现在输出中"
+        assert case["item"]["url"] in items, "输入条目必须出现在输出中"
 
 
 @pytest.mark.parametrize("case", _load("analyst_cases.json"), ids=lambda c: c["id"])
