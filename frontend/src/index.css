@@ -4,6 +4,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
+  /* 本项目语义 token */
   --color-background: var(--c-background);
   --color-surface: var(--c-surface);
   --color-surface-strong: var(--c-surface-strong);
@@ -20,6 +21,19 @@
   --color-sky-1: var(--c-sky-1);
   --color-sky-2: var(--c-sky-2);
   --color-sky-3: var(--c-sky-3);
+
+  /* shadcn/ui 组件内部引用的语义名,桥接到同一套变量 */
+  --color-foreground: var(--c-text);
+  --color-card: var(--c-surface);
+  --color-card-foreground: var(--c-text);
+  --color-popover: var(--c-surface);
+  --color-popover-foreground: var(--c-text);
+  --color-secondary: var(--c-muted);
+  --color-secondary-foreground: var(--c-text);
+  --color-destructive: var(--c-danger);
+  --color-border: var(--c-border);
+  --color-input: var(--c-border);
+  --color-ring: var(--c-primary);
 }
 
 :root {
@@ -40,6 +54,7 @@
   --c-sky-1: #3d7fd9;
   --c-sky-2: #7fb5ec;
   --c-sky-3: #fdf2dd;
+  --c-text: #1c2430;
 }
 
 .dark {
@@ -60,17 +75,14 @@
   --c-sky-1: #0b1026;
   --c-sky-2: #1a2450;
   --c-sky-3: #2c3a70;
+  --c-text: #dfe7ff;
 }
 
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   background: var(--c-background);
-  color: #1c2430;
-}
-
-.dark body {
-  color: #dfe7ff;
+  color: var(--c-text);
 }
 
 /* 尊重系统减弱动效偏好:动画与过渡降到近零 */
