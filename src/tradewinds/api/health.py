@@ -40,6 +40,17 @@ async def _check_redis(redis: Any) -> Literal["ok", "fail"]:
     return "ok"
 
 
+async def _queue_backlog(redis: Any) -> int:
+    """三个 Celery 队列的在途任务总数;读取失败返回 -1(不阻断就绪判定)。"""
+    total = 0
+    for queue in ("default", "pipeline", "push"):
+        try:
+            total += int(await redis.llen(queue))
+        except Exception:
+            return -1
+    return total
+
+
 @router.get("/readyz")
 async def readyz(request: Request) -> JSONResponse:
     checks = {
@@ -49,5 +60,9 @@ async def readyz(request: Request) -> JSONResponse:
     ready = all(status == "ok" for status in checks.values())
     return JSONResponse(
         status_code=200 if ready else 503,
-        content={"status": "ready" if ready else "unavailable", "checks": checks},
+        content={
+            "status": "ready" if ready else "unavailable",
+            "checks": checks,
+            "queue_backlog": await _queue_backlog(request.app.state.redis),
+        },
     )

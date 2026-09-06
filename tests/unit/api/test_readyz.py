@@ -39,6 +39,9 @@ class FakeRedis:
             raise ConnectionError("redis down")
         return True
 
+    async def llen(self, key: str) -> int:
+        return 0
+
 
 def _client_with_state(session_fail: bool, redis_fail: bool) -> TestClient:
     app = create_app()
@@ -53,7 +56,10 @@ def test_readyz_ok_when_db_and_redis_reachable() -> None:
     response = client.get("/readyz")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ready", "checks": {"db": "ok", "redis": "ok"}}
+    body = response.json()
+    assert body["status"] == "ready"
+    assert body["checks"] == {"db": "ok", "redis": "ok"}
+    assert body["queue_backlog"] == 0
 
 
 def test_readyz_reports_db_failure() -> None:
