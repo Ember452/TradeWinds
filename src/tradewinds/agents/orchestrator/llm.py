@@ -119,12 +119,13 @@ class OpenAICompatibleProvider:
                     return LLMResult(
                         content=raw.choices[0].message.content, usage=_usage_of(raw.usage)
                     )
+                # openai 3.x:pydantic 模型经 response_format 传入,解析结果在 message.parsed
                 raw = await self._client.beta.chat.completions.parse(
                     model=model_name,
                     messages=_message_dicts(messages),
-                    response_model=response_model,
+                    response_format=response_model,
                 )
-                return LLMResult(content=raw.parsed, usage=_usage_of(raw.usage))
+                return LLMResult(content=raw.choices[0].message.parsed, usage=_usage_of(raw.usage))
             except _RETRYABLE as exc:
                 last_error = exc
                 if attempt < _MAX_RETRIES:

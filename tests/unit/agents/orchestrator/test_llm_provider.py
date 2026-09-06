@@ -101,11 +101,17 @@ async def test_structured_output_returns_validated_model(monkeypatch) -> None:
         value: int
 
     monkeypatch.setattr("tradewinds.agents.orchestrator.llm.asyncio.sleep", None)
+    # openai 3.x 返回形状:解析结果在 choices[0].message.parsed
+    message = type(
+        "Message",
+        (),
+        {"parsed": Score(value=8), "content": None},
+    )()
     parsed = type(
         "Parsed",
         (),
         {
-            "parsed": Score(value=8),
+            "choices": [type("Choice", (), {"message": message})()],
             "usage": type("U", (), {"prompt_tokens": 1, "completion_tokens": 1})(),
         },
     )()
@@ -117,7 +123,7 @@ async def test_structured_output_returns_validated_model(monkeypatch) -> None:
     )
 
     assert result.content == Score(value=8)
-    assert beta.calls[0]["response_model"] is Score
+    assert beta.calls[0]["response_format"] is Score
 
 
 async def test_retry_on_429_then_succeeds(monkeypatch) -> None:
