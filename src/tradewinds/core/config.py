@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     llm_api_key: str = Field(description="LLM API 密钥")
     model_low: str = Field(description="低价位模型(Planner/Retriever/Analyst)")
     model_mid: str = Field(description="中档位模型(Editor/对话)")
+    github_token: str | None = Field(
+        default=None, description="GitHub 搜索 API token,可选,提升限流额度"
+    )
 
     # --- 业务限额 ---
     quota_topics_max: int = Field(default=5, description="每用户最大主题数")

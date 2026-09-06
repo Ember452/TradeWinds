@@ -47,3 +47,10 @@ class LLMError(TradeWindsError):
 
     code = "llm_unavailable"
     status_code = 503
+
+
+class SourceError(TradeWindsError):
+    """信息源请求或解析失败;Retriever 捕获后降级,不上抛中断管道。"""
+
+    code = "source_failed"
+    status_code = 502

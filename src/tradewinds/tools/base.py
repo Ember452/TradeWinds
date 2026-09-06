@@ -9,12 +9,14 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Protocol, TypeVar
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from pydantic import BaseModel
 
 from tradewinds.agents.schemas.retrieval_plan import RetrievalPlan
+
+T = TypeVar("T")
 
 
 class CandidateItem(BaseModel):
@@ -71,7 +73,7 @@ class SourceClient(Protocol):
 
 
 class RateLimiter:
-    """并发信号量 + 最小请求间隔,所有客户端共享同一实例。"""
+    """并发信号量 + 最小请求间隔,所有客户端共享同一实例;透传操作结果。"""
 
     def __init__(self, max_concurrency: int = 5, min_interval_seconds: float = 0.5) -> None:
         self._semaphore = asyncio.Semaphore(max_concurrency)
@@ -79,14 +81,14 @@ class RateLimiter:
         self._last_request = 0.0
         self._lock = asyncio.Lock()
 
-    async def run(self, operation: Callable[[], Awaitable[None]]) -> None:
+    async def run(self, operation: Callable[[], Awaitable[T]]) -> T:
         async with self._semaphore:
             async with self._lock:
                 elapsed = time.monotonic() - self._last_request
                 if elapsed < self._min_interval:
                     await asyncio.sleep(self._min_interval - elapsed)
                 self._last_request = time.monotonic()
-            await operation()
+            return await operation()
 
 
 @dataclass(frozen=True)
