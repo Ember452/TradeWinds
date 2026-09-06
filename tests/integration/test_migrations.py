@@ -37,11 +37,11 @@ async def _table_columns(database_url: str, table: str) -> set[str]:
         await engine.dispose()
 
 
-async def test_upgrade_creates_users_and_downgrade_reverts(alembic_config: Config) -> None:
+async def test_upgrade_creates_tables_and_downgrade_reverts(alembic_config: Config) -> None:
     url = os.environ["TRADEWINDS_DATABASE_URL"]
 
     command.upgrade(alembic_config, "head")
-    columns = await _table_columns(url, "users")
+    user_columns = await _table_columns(url, "users")
     assert {
         "id",
         "email",
@@ -49,7 +49,39 @@ async def test_upgrade_creates_users_and_downgrade_reverts(alembic_config: Confi
         "notify_email",
         "quota_topic_max",
         "created_at",
-    } <= columns
+    } <= user_columns
+    topic_columns = await _table_columns(url, "topics")
+    assert {
+        "id",
+        "user_id",
+        "name",
+        "description",
+        "plan",
+        "cadence",
+        "status",
+        "last_run_at",
+        "next_run_at",
+        "created_at",
+    } <= topic_columns
+    item_columns = await _table_columns(url, "items")
+    assert {
+        "id",
+        "topic_id",
+        "source",
+        "url",
+        "url_hash",
+        "title",
+        "raw_content",
+        "published_at",
+        "score",
+        "cluster_key",
+        "summary",
+        "reason",
+        "status",
+        "created_at",
+    } <= item_columns
 
     command.downgrade(alembic_config, "base")
     assert not await _table_columns(url, "users")
+    assert not await _table_columns(url, "topics")
+    assert not await _table_columns(url, "items")
