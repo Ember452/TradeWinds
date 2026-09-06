@@ -1,4 +1,4 @@
-.PHONY: lint fmt type test test-all dev
+.PHONY: lint fmt type test test-all dev migrate
 
 lint:
 	uv run ruff check .
@@ -19,3 +19,6 @@ test-all:
 
 dev:
 	uv run uvicorn tradewinds.api.app:create_app --factory --reload
+
+migrate:
+	uv run alembic upgrade head
