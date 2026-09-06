@@ -24,7 +24,9 @@ class FakeRunner:
         self._plan = RetrievalPlan.model_validate(plan_data)
         self.calls: list[tuple[str, type, str]] = []
 
-    async def run(self, prompt: str, response_model: type, *, model: ModelTier) -> Any:
+    async def run(
+        self, prompt: str, response_model: type, *, model: ModelTier, **kwargs: object
+    ) -> Any:
         self.calls.append((prompt, response_model, model.value))
         return self._plan
 
@@ -60,7 +62,9 @@ async def test_validation_failure_retried_via_structured_runner() -> None:
     # 复用 StructuredRunner 的重试语义:这里验证 Planner 把校验责任交给 runner,
     # runner 连续返回非法产物时异常向上抛,Planner 不吞异常。
     class FailingRunner(FakeRunner):
-        async def run(self, prompt: str, response_model: type, *, model: ModelTier) -> Any:
+        async def run(
+            self, prompt: str, response_model: type, *, model: ModelTier, **kwargs: object
+        ) -> Any:
             raise AssertionError("走不到")  # pragma: no cover
 
     planner = Planner(runner=FailingRunner(SAMPLE_PLAN))  # type: ignore[arg-type]

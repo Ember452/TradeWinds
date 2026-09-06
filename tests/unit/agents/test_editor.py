@@ -18,7 +18,9 @@ class FakeRunner:
     def __init__(self) -> None:
         self.calls: list[tuple[str, type, str]] = []
 
-    async def run(self, prompt: str, response_model: type, *, model: ModelTier) -> Any:
+    async def run(
+        self, prompt: str, response_model: type, *, model: ModelTier, **kwargs: object
+    ) -> Any:
         self.calls.append((prompt, response_model, model.value))
         return ItemDigest(summary="新框架发布,支持多工具编排", reason="直接对应主题关注点")
 

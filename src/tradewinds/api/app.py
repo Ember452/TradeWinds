@@ -14,6 +14,7 @@ from tradewinds.core.database import create_engine, create_session_factory
 from tradewinds.core.logging import setup_logging
 from tradewinds.core.redis_client import create_redis_client
 from tradewinds.push.email_channel import EmailChannel, EmailChannelConfig
+from tradewinds.services.usage_service import SessionUsageRecorder
 from tradewinds.tasks.celery_app import PUSH_TASK, celery_app, configure_broker
 
 
@@ -30,7 +31,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # API 进程内手动触发 run 也会入队推送任务,故同样注入 broker 配置
     configure_broker(celery_app, settings)
 
-    components = build_pipeline_components(settings)
+    components = build_pipeline_components(
+        settings, usage_recorder=SessionUsageRecorder(app.state.session_factory)
+    )
     app.state.planner = components.planner
     app.state.analyst = components.analyst
     app.state.editor = components.editor

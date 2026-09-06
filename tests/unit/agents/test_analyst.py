@@ -37,7 +37,9 @@ class FakeRunner:
         self._output = output
         self.prompts: list[str] = []
 
-    async def run(self, prompt: str, response_model: type, *, model: ModelTier) -> AnalystOutput:
+    async def run(
+        self, prompt: str, response_model: type, *, model: ModelTier, **kwargs: object
+    ) -> AnalystOutput:
         assert response_model is AnalystOutput
         self.prompts.append(prompt)
         return self._output

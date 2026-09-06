@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from tradewinds.agents.orchestrator.llm import ModelTier
+from tradewinds.agents.orchestrator.metering import UsageRecorder
 from tradewinds.agents.orchestrator.structured import StructuredRunner
 from tradewinds.agents.schemas.scored_item import AnalystOutput, ScoredItem
 from tradewinds.core.text import normalize_whitespace, truncate_text
@@ -17,8 +18,9 @@ _UNMATCHED_KEY = "unmatched"
 class Analyst:
     SYSTEM_PROMPT = _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
 
-    def __init__(self, runner: StructuredRunner) -> None:
+    def __init__(self, runner: StructuredRunner, *, recorder: UsageRecorder | None = None) -> None:
         self._runner = runner
+        self._recorder = recorder
 
     async def score(self, items: list[CandidateItem], topic: Topic) -> list[ScoredItem]:
         """按主题相关性逐条评分;LLM 未覆盖的条目计 0 分进 unmatched 聚类。"""
@@ -26,7 +28,9 @@ class Analyst:
             return []
 
         prompt = self._build_prompt(items, topic)
-        output = await self._runner.run(prompt, AnalystOutput, model=ModelTier.low)
+        output = await self._runner.run(
+            prompt, AnalystOutput, model=ModelTier.low, role="analyst", user_id=topic.user_id
+        )
 
         by_url = {entry.url: entry for entry in output.items}
         scored: list[ScoredItem] = []

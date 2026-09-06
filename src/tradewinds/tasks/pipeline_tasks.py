@@ -10,6 +10,7 @@ from tradewinds.core.config import get_settings
 from tradewinds.core.database import create_engine, create_session_factory
 from tradewinds.models.topic import Topic
 from tradewinds.services.pipeline_service import PipelineService
+from tradewinds.services.usage_service import SessionUsageRecorder
 from tradewinds.tasks.celery_app import PIPELINE_TASK, celery_app
 
 logger = structlog.get_logger(__name__)
@@ -36,7 +37,9 @@ async def _run_topic(topic_id: int) -> dict[str, object]:
                 logger.warning("topic_not_found", topic_id=topic_id)
                 return {"status": "not_found"}
 
-            components = build_pipeline_components(settings)
+            components = build_pipeline_components(
+                settings, usage_recorder=SessionUsageRecorder(factory)
+            )
             try:
                 pipeline = PipelineService(
                     session,

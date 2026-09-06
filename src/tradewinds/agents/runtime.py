@@ -10,6 +10,7 @@ import httpx
 from tradewinds.agents.analyst import Analyst
 from tradewinds.agents.editor import Editor
 from tradewinds.agents.orchestrator.llm import ModelTier, OpenAICompatibleProvider
+from tradewinds.agents.orchestrator.metering import UsageRecorder
 from tradewinds.agents.orchestrator.structured import StructuredRunner
 from tradewinds.agents.planner import Planner
 from tradewinds.agents.retriever import Retriever
@@ -29,7 +30,9 @@ class PipelineComponents:
     http_client: httpx.AsyncClient
 
 
-def build_pipeline_components(settings: Settings) -> PipelineComponents:
+def build_pipeline_components(
+    settings: Settings, *, usage_recorder: UsageRecorder | None = None
+) -> PipelineComponents:
     http_client = httpx.AsyncClient(timeout=30, follow_redirects=True)
     limiter = RateLimiter(max_concurrency=5, min_interval_seconds=1.0)
     provider = OpenAICompatibleProvider(
@@ -43,8 +46,8 @@ def build_pipeline_components(settings: Settings) -> PipelineComponents:
     runner = StructuredRunner(provider)
     return PipelineComponents(
         planner=Planner(runner),
-        analyst=Analyst(runner),
-        editor=Editor(runner),
+        analyst=Analyst(runner, recorder=usage_recorder),
+        editor=Editor(runner, recorder=usage_recorder),
         retriever=Retriever(
             [
                 ArxivClient(limiter, http_client),
