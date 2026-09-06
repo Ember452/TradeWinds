@@ -255,3 +255,10 @@
 - 接口签名微调(已同步 architecture.md 第 5 节):`SourceClient.search`/`Retriever.collect` 增加 `topic_id` 参数(指纹计算需要);`Retriever.collect` 返回 `CollectResult(items, degraded)` 以携带单源降级清单;`StructuredRunner.run`/`ToolLoop.__init__` 增加 model 档位与上下文截断参数。
 - 新增配置(已同步 .env.example):`TRADEWINDS_PIPELINE_SCORE_THRESHOLD`(暂定 6 分,Editor 准入下限)、`TRADEWINDS_GITHUB_TOKEN`(可选)、`TRADEWINDS_LOOP_*` 三项工具循环护栏。
 - 集成测试访问数据库断言时使用独立 engine(asyncpg 连接绑定事件循环),不复用应用 lifespan 的 engine。
+
+**Phase 3(2026-09-06 完成,commit 833d521…744cf78)**
+
+- Task 3.1 worker/beat 不经 celery CLI 启动,改用自有入口模块(`python -m tradewinds.tasks.worker|beat`):Celery 应用模块导入零环境依赖,broker 由 `configure_broker` 注入,保证单元测试可安全 import。
+- Task 3.3 推送范围:仅汇总邮件(digest);阈值即时推送与聚类抑制按 design.md 第 10 节仍不在一期范围。SMTP 未配置时投递结果记 skipped(email_disabled),不视为失败。推送任务重试仅覆盖"意外异常",渠道明确失败直接落 push_log failed 可查询,指数退避重试 3 次语义保留在 send_push 任务。
+- Task 3.3 推送触发点在 PipelineService(可注入,手动 run 与调度 run 行为一致);入队分发回调由组合方注入,lifespan 负责 configure_broker,服务层不反向依赖任务模块。
+- Task 3.4 配额扣减的幂等由"用量在 LLM 调用成功后记录一次 + 管道指纹去重"共同保证,未引入独立扣减表;`GET /usage/daily` 即计划中"内部接口"的最小实现。
