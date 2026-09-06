@@ -92,8 +92,10 @@ TradeWinds/
 ├── pyproject.toml             # 依赖与工具配置（ruff/mypy/pytest 统一在此）
 ├── docs/
 │   ├── design.md              # 设计文档
+│   ├── architecture.md        # 架构与项目结构
 │   ├── scaling-plan.md        # 扩展计划
-│   └── plans/                 # 实现计划文档（写代码前产出）
+│   ├── plans/                 # 实现计划文档（写代码前产出）
+│   └── study/                 # 学习文档（每个 Task 交付后产出，见第 10 节）
 ├── src/tradewinds/
 │   ├── api/                   # FastAPI 路由层：请求/响应模型、依赖注入，不含业务逻辑
 │   ├── agents/                # 编排层 + 四角色；prompt 单独文件，不内嵌字符串

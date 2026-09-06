@@ -73,100 +73,31 @@ flowchart TD
 
 ## 3. 项目结构
 
+**只约定到目录与职责这一层**。具体文件名与模块拆分在实现时按 AGENTS.md 第 6 节的拆分信号决定，本文不锁定任何 `.py` 文件名。
+
 ```
 TradeWinds/
-├── AGENTS.md                       # AI/协作者开发准则
-├── README.md                       # 项目门面
-├── Makefile                        # make lint / test / migrate / run 等统一入口
-├── pyproject.toml                  # 依赖 + ruff/mypy/pytest/coverage 配置唯一来源
-├── .env.example                    # 环境变量样例（全部变量含注释），.env 不入库
-├── docker-compose.yml              # 本地开发与生产共用的编排
-├── deploy/
-│   ├── Caddyfile                   # HTTPS 入口配置
-│   └── prod.compose.yml            # 生产覆写（镜像 tag、副本数、资源限制）
-├── .github/workflows/
-│   ├── ci.yml                      # lint + type + test（PR 必过）
-│   └── deploy.yml                  # main 分支构建镜像 → SSH 部署
-├── docs/
-│   ├── design.md                   # 设计文档
-│   ├── architecture.md             # 本文
-│   ├── scaling-plan.md             # 扩展计划
-│   ├── plans/                      # 实施计划书
-│   └── study/                      # 学习文档（每个 Task 交付后产出）
+├── pyproject.toml / Makefile / .env.example   # 依赖与工具链配置、统一命令入口、环境变量样例
+├── docker-compose.yml + deploy/               # 编排定义与生产配置（HTTPS 入口、生产覆写）
+├── .github/workflows/                         # CI（lint + type + test）与部署流水线
+├── docs/                                      # design / architecture / scaling-plan / plans/ / study/
 ├── src/tradewinds/
-│   ├── __init__.py
-│   ├── main.py                     # FastAPI 应用工厂 create_app()
-│   ├── core/                       # 基础设施，无业务语义
-│   │   ├── config.py               # Settings（pydantic-settings，前缀 TRADEWINDS_）
-│   │   ├── logging.py              # structlog 配置
-│   │   ├── security.py             # bcrypt 密码哈希、JWT 签发与校验
-│   │   ├── exceptions.py           # 异常基类与全局错误码
-│   │   └── db.py                   # async engine / session 工厂
-│   ├── models/                     # SQLAlchemy 模型 + 枚举
-│   │   ├── user.py
-│   │   ├── topic.py
-│   │   ├── item.py
-│   │   ├── report.py
-│   │   ├── conversation.py         # conversation + message
-│   │   └── push_log.py
-│   ├── api/
-│   │   ├── deps.py                 # 依赖注入：当前用户、DB session、Redis
-│   │   └── v1/
-│   │       ├── auth.py             # /auth/*
-│   │       ├── topics.py           # /topics/*
-│   │       ├── items.py            # Feed 读取
-│   │       ├── reports.py          # /reports/*
-│   │       ├── conversations.py    # /conversations/*（含 SSE）
-│   │       └── health.py           # /healthz /readyz
-│   ├── services/                   # 业务逻辑，一个领域一个文件
-│   │   ├── auth_service.py
-│   │   ├── topic_service.py        # 主题 CRUD、配额、计划预览
-│   │   ├── item_service.py         # 条目查询、去重落库
-│   │   ├── pipeline_service.py     # 订阅执行管道的编排入口
-│   │   ├── chat_service.py         # 对话编排入口
-│   │   └── quota_service.py        # 配额计算与扣减
+│   ├── api/            # 路由层：参数校验 + 调用 services + 组装响应，不含业务逻辑；版本化（v1/）
+│   ├── services/       # 业务逻辑：路由薄、服务厚，一个领域一个模块
 │   ├── agents/
-│   │   ├── orchestrator/           # 自研编排层（不含业务）
-│   │   │   ├── llm.py              # LLMProvider 协议 + OpenAI-compatible 实现
-│   │   │   ├── loop.py             # 工具循环执行器
-│   │   │   ├── structured.py       # 结构化输出执行器（校验失败重试）
-│   │   │   ├── streaming.py        # SSE 事件流封装
-│   │   │   └── metering.py         # token/成本计量上报
-│   │   ├── prompts/                # prompt 全部独立文件（.md/.txt），代码不内嵌
-│   │   │   ├── planner.md
-│   │   │   ├── analyst.md
-│   │   │   └── editor.md
-│   │   ├── schemas/                # 角色间传递的 Pydantic 模型（检索计划、评分、摘要）
-│   │   ├── planner.py              # 各角色 = prompt + schema + 编排层调用的薄封装
-│   │   ├── retriever.py
-│   │   ├── analyst.py
-│   │   └── editor.py
-│   ├── tools/                      # 信息源客户端，一个源一个模块，同构接口
-│   │   ├── base.py                 # SourceClient 协议 + 公共 httpx 工厂
-│   │   ├── arxiv.py
-│   │   ├── hackernews.py
-│   │   ├── github.py
-│   │   ├── websearch.py            # Tavily/Brave，可切换
-│   │   └── fetcher.py              # 通用网页抓取 + 正文提取
-│   ├── tasks/                      # Celery 层：任务定义、队列路由、beat 调度
-│   │   ├── celery_app.py           # 应用工厂、队列/路由/重试策略
-│   │   ├── pipeline_tasks.py       # 主题检索管道任务
-│   │   ├── push_tasks.py           # 邮件推送任务
-│   │   └── schedules.py            # beat 配置
-│   └── push/
-│       ├── base.py                 # PushChannel 协议
-│       ├── email.py                # 邮件渠道（模板渲染 + 发送 + 重试）
-│       └── templates/              # Jinja2 邮件模板
-├── frontend/
-│   └── src/
-│       ├── features/               # 按业务特性组织，跨特性不互相 import
-│       │   ├── auth/  topics/  feed/  chat/
-│       └── shared/                 # api client、通用组件、类型
-└── tests/
-    ├── unit/                       # 纯逻辑（镜像 src 结构）
-    ├── contract/                   # 信息源解析（录制响应固件 fixtures/）
-    ├── agents/                     # 编排层与角色（LLM 全 mock + 金标集）
-    └── integration/                # 真实 PG/Redis 容器，全链路
+│   │   ├── orchestrator/   # 自研编排层（LLM 抽象、工具循环、结构化输出、流式、计量），不含业务
+│   │   ├── prompts/        # 全部 prompt 独立文件，代码不内嵌
+│   │   ├── schemas/        # 角色间传递的 Pydantic 模型（检索计划、评分、摘要）
+│   │   └── 四角色各一个模块 # planner / retriever / analyst / editor
+│   ├── tools/          # 信息源客户端：base 协议 + arxiv / hn / github / websearch / 通用抓取
+│   ├── tasks/          # Celery：应用工厂、任务定义、队列路由、beat 调度
+│   ├── models/         # SQLAlchemy 模型，一个聚合一个模块
+│   ├── push/           # 推送渠道：协议 + 邮件实现 + 模板
+│   └── core/           # 配置、日志、安全、异常、DB/Redis 工厂；无业务语义
+├── frontend/src/
+│   ├── features/       # auth / topics / feed / chat，按业务特性组织，跨特性不互相 import
+│   └── shared/         # api client、通用组件、类型
+└── tests/              # unit / contract（录制固件）/ agents（金标集）/ integration，镜像 src 结构
 ```
 
 ## 4. 命名规范
@@ -228,5 +159,5 @@ class PushChannel(Protocol):
 | 环境变量 | `.env.example` 全量样例带注释；Settings 启动即校验，缺配 fail-fast | — |
 | 数据库迁移 | Alembic，只进不退（回滚用新迁移），CI 起真库跑迁移 | — |
 | 密钥管理 | 全部走环境变量；仓库内无任何真实密钥；Sentry/DSN 等同密钥管理 | — |
-| 错误码 | `core/exceptions.py` 集中定义业务异常 → 统一错误响应体 `{code, message}` | — |
+| 错误码 | `core/exceptions` 集中定义业务异常 → 统一错误响应体 `{code, message}` | — |
 | 文档纪律 | 见 AGENTS.md 第 0/9/10 节（阅读地图、文档同步、study 学习文档） | 每个 Task 后写 study |
