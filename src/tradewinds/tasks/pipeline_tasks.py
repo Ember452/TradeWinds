@@ -9,10 +9,12 @@ from tradewinds.agents.runtime import build_pipeline_components
 from tradewinds.core.config import get_settings
 from tradewinds.core.database import create_engine, create_session_factory
 from tradewinds.models.topic import Topic
+from tradewinds.services.feed_service import FeedService
 from tradewinds.services.pipeline_service import PipelineService
 from tradewinds.services.report_service import ReportService
 from tradewinds.services.usage_service import SessionUsageRecorder
 from tradewinds.tasks.celery_app import PIPELINE_TASK, celery_app
+from tradewinds.tools.rss import RssClient
 
 logger = structlog.get_logger(__name__)
 
@@ -41,6 +43,8 @@ async def _run_topic(topic_id: int) -> dict[str, object]:
             components = build_pipeline_components(
                 settings, usage_recorder=SessionUsageRecorder(factory)
             )
+            http_client = components.http_client
+            limiter = components.rate_limiter
             try:
                 pipeline = PipelineService(
                     session,
@@ -51,6 +55,10 @@ async def _run_topic(topic_id: int) -> dict[str, object]:
                     immediate_threshold=settings.push_immediate_threshold,
                     suppress_hours=settings.push_cluster_suppress_hours,
                     report_service=ReportService(session),
+                    feed_service=FeedService(session, http_client=http_client),
+                    feed_client_factory=lambda feed: RssClient(
+                        limiter, http_client, feed_id=feed.id, url=feed.url
+                    ),
                 )
                 result = await pipeline.run_topic(topic)
             finally:

@@ -1,6 +1,7 @@
 """Retriever:按计划并发调用各源客户端,单源故障降级不中断。"""
 
 import asyncio
+from collections.abc import Sequence
 
 import structlog
 from pydantic import BaseModel
@@ -21,10 +22,18 @@ class Retriever:
         self._clients = clients
 
     async def collect(
-        self, plan: RetrievalPlan, *, topic_id: int, seen_hashes: set[str]
+        self,
+        plan: RetrievalPlan,
+        *,
+        topic_id: int,
+        seen_hashes: set[str],
+        extra_clients: Sequence[SourceClient] = (),
     ) -> CollectResult:
         outcomes = await asyncio.gather(
-            *(self._safe_search(client, plan, topic_id, seen_hashes) for client in self._clients)
+            *(
+                self._safe_search(client, plan, topic_id, seen_hashes)
+                for client in [*self._clients, *extra_clients]
+            )
         )
         items: list[CandidateItem] = []
         degraded: list[SourceDegraded] = []

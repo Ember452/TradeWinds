@@ -45,6 +45,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.analyst = components.analyst
     app.state.editor = components.editor
     app.state.retriever = components.retriever
+    app.state.http_client = components.http_client
+    app.state.rate_limiter = components.rate_limiter
 
     email_channel = EmailChannel(
         EmailChannelConfig(

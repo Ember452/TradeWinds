@@ -91,6 +91,19 @@ class RateLimiter:
             return await operation()
 
 
+class Limiter(Protocol):
+    """限速器协议:RateLimiter 与 PassthroughLimiter 均满足,请求助手按此解耦。"""
+
+    async def run(self, operation: Callable[[], Awaitable[T]]) -> T: ...
+
+
+class PassthroughLimiter:
+    """不限速直通:一次性探活/管理类请求使用,不占用管道共享限速器。"""
+
+    async def run(self, operation: Callable[[], Awaitable[T]]) -> T:
+        return await operation()
+
+
 @dataclass(frozen=True)
 class SourceDegraded:
     """单源降级标记:Retriever 据此记 warning,不上抛中断管道。"""

@@ -289,3 +289,9 @@
 - 抑制规则:同聚类(cluster_key)24h 内(窗口可配)已有待发/已发即时推送 → 跳过;单条以 digest_key=`item:<id>` 去重,重跑不重推。
 - 投递复用既有链路:入 push 队列、send_push 重试语义、SMTP 未配置记 skipped 均不变。
 - 扩展计划 §3 其余项(跨会话记忆/自定义 RSS/RAG 已读内容/阈值动态化)依赖数据积累或向量库,按价值顺序后续迭代。
+
+**自定义 RSS 源(2026-09-06,扩展计划 §3)**
+
+- RssClient(RSS 2.0 / Atom 双格式,标准库解析)作为第四类 SourceClient;feed_sources 表(0008 迁移,主题+URL 唯一)挂在主题上,创建即健康校验(不可解析 → 422 invalid_feed),beat 每日复检更新 healthy/broken。
+- 管道检索:自定义源始终参与抓取(用户显式添加即意图,不经 Planner 源选择);Retriever.collect 增 extra_clients 参数,broken 源照常抓取并由单源降级机制标注。
+- 投递/评分/去重全部复用既有管道;tools/base 抽出 Limiter 协议解耦请求助手与限速器实现。

@@ -35,6 +35,7 @@ class PipelineComponents:
     provider: LLMProvider
     source_clients: list[SourceClient]
     fetcher: Fetcher
+    rate_limiter: RateLimiter
     http_client: httpx.AsyncClient
 
 
@@ -65,5 +66,6 @@ def build_pipeline_components(
         provider=provider,
         source_clients=source_clients,
         fetcher=Fetcher(limiter, http_client),
+        rate_limiter=limiter,
         http_client=http_client,
     )

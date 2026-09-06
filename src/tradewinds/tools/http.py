@@ -6,13 +6,13 @@ import httpx
 
 from tradewinds.core.exceptions import SourceError
 from tradewinds.core.text import truncate_text
-from tradewinds.tools.base import RateLimiter
+from tradewinds.tools.base import Limiter
 
 RESPONSE_MAX_CHARS = 20_000
 
 
 async def fetch_text(
-    limiter: RateLimiter,
+    limiter: Limiter,
     client: httpx.AsyncClient,
     url: str,
     *,

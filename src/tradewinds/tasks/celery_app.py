@@ -11,11 +11,13 @@ from tradewinds.core.config import Settings
 PIPELINE_TASK = "tradewinds.tasks.pipeline_tasks.run_topic"
 SCAN_TASK = "tradewinds.tasks.scheduler_tasks.scan_due_topics"
 PUSH_TASK = "tradewinds.tasks.push_tasks.send_push"
+RECHECK_FEEDS_TASK = "tradewinds.tasks.feed_tasks.recheck_feeds"
 
 _INCLUDE = [
     "tradewinds.tasks.pipeline_tasks",
     "tradewinds.tasks.scheduler_tasks",
     "tradewinds.tasks.push_tasks",
+    "tradewinds.tasks.feed_tasks",
 ]
 
 
@@ -43,7 +45,12 @@ def create_celery_app(settings: Settings | None = None) -> Celery:
                 "task": SCAN_TASK,
                 "schedule": 60.0,
                 "options": {"queue": "default"},
-            }
+            },
+            RECHECK_FEEDS_TASK: {
+                "task": RECHECK_FEEDS_TASK,
+                "schedule": 86400.0,
+                "options": {"queue": "default"},
+            },
         },
     )
     if settings is not None:

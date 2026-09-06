@@ -12,11 +12,13 @@ from tradewinds.core.security import decode_access_token
 from tradewinds.models.user import User
 from tradewinds.services.auth_service import AuthService
 from tradewinds.services.chat_service import ChatService
+from tradewinds.services.feed_service import FeedService
 from tradewinds.services.pipeline_service import PipelineService
 from tradewinds.services.push_service import PushService
 from tradewinds.services.rate_limit_service import RateLimitService
 from tradewinds.services.report_service import ReportService
 from tradewinds.services.topic_service import TopicService
+from tradewinds.tools.rss import RssClient
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -68,6 +70,13 @@ def get_pipeline_service(
         suppress_hours=settings.push_cluster_suppress_hours,
         push_service=push_service,
         report_service=ReportService(session),
+        feed_service=FeedService(session, http_client=request.app.state.http_client),
+        feed_client_factory=lambda feed: RssClient(
+            request.app.state.rate_limiter,
+            request.app.state.http_client,
+            feed_id=feed.id,
+            url=feed.url,
+        ),
     )
 
 
@@ -83,6 +92,10 @@ def get_chat_service(
         recorder=request.app.state.usage_recorder,
         limiter=request.app.state.chat_limiter,
     )
+
+
+def get_feed_service(request: Request, session: AsyncSession = Depends(get_db)) -> FeedService:
+    return FeedService(session, http_client=request.app.state.http_client)
 
 
 def get_rate_limit_service(request: Request) -> RateLimitService:

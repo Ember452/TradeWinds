@@ -1,6 +1,8 @@
 """管道编排:Retriever → Analyst → Editor → 落库,推进主题调度时间。"""
 
+from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from pydantic import BaseModel, ValidationError
@@ -13,11 +15,12 @@ from tradewinds.agents.schemas.retrieval_plan import RetrievalPlan
 from tradewinds.core.exceptions import TradeWindsError
 from tradewinds.models.item import Item, ItemStatus
 from tradewinds.models.topic import Topic
+from tradewinds.services.feed_service import FeedService
 from tradewinds.services.item_service import create_pending_items, load_seen_hashes
 from tradewinds.services.push_service import PushService
 from tradewinds.services.report_service import ReportService
 from tradewinds.services.topic_service import schedule_after
-from tradewinds.tools.base import CandidateItem, SourceDegraded
+from tradewinds.tools.base import CandidateItem, SourceClient, SourceDegraded
 
 logger = structlog.get_logger(__name__)
 
@@ -43,6 +46,8 @@ class PipelineService:
         suppress_hours: int = 24,
         push_service: PushService | None = None,
         report_service: ReportService | None = None,
+        feed_service: FeedService | None = None,
+        feed_client_factory: Callable[[Any], SourceClient] | None = None,
     ) -> None:
         self._session = session
         self._retriever = retriever
@@ -53,12 +58,20 @@ class PipelineService:
         self._suppress_hours = suppress_hours
         self._push_service = push_service
         self._report_service = report_service
+        self._feed_service = feed_service
+        self._feed_client_factory = feed_client_factory
 
     async def run_topic(self, topic: Topic) -> PipelineResult:
         """手动/定时触发共用入口;重复 run 依赖指纹去重,不产生重复条目。"""
         plan = _plan_of(topic)
         seen_hashes = await load_seen_hashes(self._session, topic.id)
-        collected = await self._retriever.collect(plan, topic_id=topic.id, seen_hashes=seen_hashes)
+        extra_clients: list[SourceClient] = []
+        if self._feed_service is not None and self._feed_client_factory is not None:
+            for feed in await self._feed_service.load_topic_feeds(topic.id):
+                extra_clients.append(self._feed_client_factory(feed))
+        collected = await self._retriever.collect(
+            plan, topic_id=topic.id, seen_hashes=seen_hashes, extra_clients=extra_clients
+        )
         new_items = await create_pending_items(self._session, topic.id, collected.items)
 
         accepted = rejected = 0

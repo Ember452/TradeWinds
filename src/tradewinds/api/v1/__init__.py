@@ -6,6 +6,7 @@ from tradewinds.api.v1 import (
     auth,
     chat,
     conversations,
+    feeds,
     items,
     ops,
     reports,
@@ -19,6 +20,7 @@ api_v1_router.include_router(auth.router)
 api_v1_router.include_router(users.router)
 api_v1_router.include_router(topics.router)
 api_v1_router.include_router(items.router)
+api_v1_router.include_router(feeds.router)
 api_v1_router.include_router(usage.router)
 api_v1_router.include_router(ops.router)
 api_v1_router.include_router(reports.router)
