@@ -156,6 +156,10 @@ class ChatService:
         self._recorder = recorder
         self._limiter = limiter
 
+    async def ensure_conversation(self, user_id: int, conversation_id: int) -> None:
+        """归属校验前置:在 SSE 响应开始前完成 404 判定,避免流中途抛错无法回写状态码。"""
+        await self._conversations.get(user_id, conversation_id)
+
     async def stream_with_limit(
         self, user_id: int, conversation_id: int, content: str
     ) -> AsyncIterator[SSEEvent]:

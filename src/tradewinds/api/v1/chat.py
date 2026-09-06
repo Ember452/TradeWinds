@@ -26,6 +26,8 @@ async def send_message(
     chat_service: ChatService = Depends(get_chat_service),
 ) -> StreamingResponse:
     """发送消息,SSE 流式返回:citations → delta* → done。"""
+    # 归属校验必须在响应开始前完成:流开始后再抛 404 无法改写状态码
+    await chat_service.ensure_conversation(current_user.id, conversation_id)
 
     async def event_stream() -> AsyncIterator[str]:
         async for event in chat_service.stream_with_limit(
