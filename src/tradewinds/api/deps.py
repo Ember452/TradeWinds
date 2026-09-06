@@ -1,18 +1,43 @@
 """API 依赖注入:数据库会话、配置、当前用户、认证服务。"""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tradewinds.core.config import Settings, get_settings
-from tradewinds.core.exceptions import AuthError
+from tradewinds.core.exceptions import AuthError, TradeWindsError
 from tradewinds.core.security import decode_access_token
 from tradewinds.models.user import User
 from tradewinds.services.auth_service import AuthService
+from tradewinds.services.rate_limit_service import RateLimitService
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_rate_limit_service(request: Request) -> RateLimitService:
+    return RateLimitService(request.app.state.redis)
+
+
+def ip_rate_limit(scope: str) -> Callable[..., Awaitable[None]]:
+    """注册/登录按 IP 限流依赖工厂;窗口与次数走配置,超限抛 429。"""
+
+    async def dependency(
+        request: Request,
+        rate_limit_service: RateLimitService = Depends(get_rate_limit_service),
+        settings: Settings = Depends(get_settings),
+    ) -> None:
+        client_ip = request.client.host if request.client else "unknown"
+        allowed = await rate_limit_service.check(
+            f"rl:{scope}:{client_ip}",
+            limit=settings.auth_rate_limit_max,
+            window_seconds=settings.auth_rate_limit_window_seconds,
+        )
+        if not allowed:
+            raise TradeWindsError("请求过于频繁,请稍后再试", code="rate_limited", status_code=429)
+
+    return dependency
 
 
 async def get_db(request: Request) -> AsyncIterator[AsyncSession]:

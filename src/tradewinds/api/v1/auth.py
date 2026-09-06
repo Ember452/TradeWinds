@@ -3,11 +3,11 @@
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, EmailStr, Field
 
-from tradewinds.api.deps import get_auth_service
+from tradewinds.api.deps import get_auth_service, ip_rate_limit
 from tradewinds.models.user import User
 from tradewinds.services.auth_service import AuthService, TokenPair
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(ip_rate_limit("auth"))])
 
 
 class RegisterRequest(BaseModel):

@@ -11,6 +11,7 @@ from tradewinds.api.v1 import api_v1_router
 from tradewinds.core.config import get_settings
 from tradewinds.core.database import create_engine, create_session_factory
 from tradewinds.core.logging import setup_logging
+from tradewinds.core.redis_client import create_redis_client
 
 
 @asynccontextmanager
@@ -19,7 +20,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     setup_logging(settings.log_level)
     engine = create_engine(settings.database_url)
     app.state.session_factory = create_session_factory(engine)
+    redis = create_redis_client(settings.redis_url)
+    app.state.redis = redis
     yield
+    await redis.aclose()
     await engine.dispose()
 
 

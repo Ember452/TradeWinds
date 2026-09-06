@@ -27,6 +27,10 @@ class Settings(BaseSettings):
 
     # --- 业务限额 ---
     quota_topics_max: int = Field(default=5, description="每用户最大主题数")
+    auth_rate_limit_max: int = Field(default=10, description="注册/登录按 IP 限流:窗口内最大次数")
+    auth_rate_limit_window_seconds: int = Field(
+        default=3600, description="注册/登录按 IP 限流:窗口秒数"
+    )
 
     # --- 可观测 ---
     log_level: str = Field(default="INFO", description="日志级别")
