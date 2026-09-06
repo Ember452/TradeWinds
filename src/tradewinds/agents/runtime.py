@@ -9,14 +9,19 @@ import httpx
 
 from tradewinds.agents.analyst import Analyst
 from tradewinds.agents.editor import Editor
-from tradewinds.agents.orchestrator.llm import ModelTier, OpenAICompatibleProvider
+from tradewinds.agents.orchestrator.llm import (
+    LLMProvider,
+    ModelTier,
+    OpenAICompatibleProvider,
+)
 from tradewinds.agents.orchestrator.metering import UsageRecorder
 from tradewinds.agents.orchestrator.structured import StructuredRunner
 from tradewinds.agents.planner import Planner
 from tradewinds.agents.retriever import Retriever
 from tradewinds.core.config import Settings
 from tradewinds.tools.arxiv import ArxivClient
-from tradewinds.tools.base import RateLimiter
+from tradewinds.tools.base import RateLimiter, SourceClient
+from tradewinds.tools.fetcher import Fetcher
 from tradewinds.tools.github import GithubClient
 from tradewinds.tools.hackernews import HackerNewsClient
 
@@ -27,6 +32,9 @@ class PipelineComponents:
     analyst: Analyst
     editor: Editor
     retriever: Retriever
+    provider: LLMProvider
+    source_clients: list[SourceClient]
+    fetcher: Fetcher
     http_client: httpx.AsyncClient
 
 
@@ -44,16 +52,18 @@ def build_pipeline_components(
         },
     )
     runner = StructuredRunner(provider)
+    source_clients: list[SourceClient] = [
+        ArxivClient(limiter, http_client),
+        HackerNewsClient(limiter, http_client),
+        GithubClient(limiter, http_client, token=settings.github_token),
+    ]
     return PipelineComponents(
         planner=Planner(runner),
         analyst=Analyst(runner, recorder=usage_recorder),
         editor=Editor(runner, recorder=usage_recorder),
-        retriever=Retriever(
-            [
-                ArxivClient(limiter, http_client),
-                HackerNewsClient(limiter, http_client),
-                GithubClient(limiter, http_client, token=settings.github_token),
-            ]
-        ),
+        retriever=Retriever(source_clients),
+        provider=provider,
+        source_clients=source_clients,
+        fetcher=Fetcher(limiter, http_client),
         http_client=http_client,
     )

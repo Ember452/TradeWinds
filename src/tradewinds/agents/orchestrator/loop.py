@@ -115,6 +115,10 @@ class ToolLoop:
         self._total_timeout = total_timeout
         self._max_context_chars = max_context_chars
 
+    @property
+    def model(self) -> ModelTier:
+        return self._model
+
     async def run(self, messages: list[Message]) -> LoopResult:
         try:
             async with asyncio.timeout(self._total_timeout):

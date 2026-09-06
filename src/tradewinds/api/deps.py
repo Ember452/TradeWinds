@@ -11,6 +11,7 @@ from tradewinds.core.exceptions import AuthError, TradeWindsError
 from tradewinds.core.security import decode_access_token
 from tradewinds.models.user import User
 from tradewinds.services.auth_service import AuthService
+from tradewinds.services.chat_service import ChatService
 from tradewinds.services.pipeline_service import PipelineService
 from tradewinds.services.push_service import PushService
 from tradewinds.services.rate_limit_service import RateLimitService
@@ -63,6 +64,20 @@ def get_pipeline_service(
         request.app.state.editor,
         score_threshold=settings.pipeline_score_threshold,
         push_service=push_service,
+    )
+
+
+def get_chat_service(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> ChatService:
+    return ChatService(
+        session,
+        request.app.state.tool_loop,
+        system_prompt=request.app.state.chat_system_prompt,
+        recorder=request.app.state.usage_recorder,
+        limiter=request.app.state.chat_limiter,
     )
 
 
