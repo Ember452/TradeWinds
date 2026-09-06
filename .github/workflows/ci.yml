@@ -68,6 +68,11 @@ jobs:
       TRADEWINDS_JWT_SECRET: ci-only-secret
       # 多个集成测试共享同一"来源 IP",调高限次避免误触发 429
       TRADEWINDS_AUTH_RATE_LIMIT_MAX: "200"
+      # LLM 集成测试全部 mock,此处仅为满足 Settings 缺配置即 fail-fast 的占位值
+      TRADEWINDS_LLM_API_BASE: https://ci.invalid/v1
+      TRADEWINDS_LLM_API_KEY: ci-only-key
+      TRADEWINDS_MODEL_LOW: ci-model-low
+      TRADEWINDS_MODEL_MID: ci-model-mid
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
