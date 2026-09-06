@@ -1,4 +1,4 @@
-"""条目落库:指纹加载与批量创建(pending 状态),供管道调用。"""
+"""条目落库与查询:指纹去重、批量创建、keyset 分页读取。"""
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,3 +43,33 @@ async def create_pending_items(
         session.add_all(items)
         await session.flush()
     return items
+
+
+async def list_items(
+    session: AsyncSession,
+    topic_id: int,
+    *,
+    cursor: int | None = None,
+    min_score: float | None = None,
+    limit: int = 20,
+) -> tuple[list[Item], int | None]:
+    """keyset 分页(禁止 offset 深翻页):按 id 倒序,返回 (条目, 下一页游标)。
+
+    默认只返回 accepted 条目;命中 limit+1 条说明还有下一页,第 limit+1 条不返回。
+    查询条件均为 (topic_id, id) 前缀,走 ix_items_topic_id 索引。
+    """
+    query = (
+        select(Item)
+        .where(Item.topic_id == topic_id)
+        .where(Item.status == ItemStatus.accepted)
+        .order_by(Item.id.desc())
+        .limit(limit + 1)
+    )
+    if cursor is not None:
+        query = query.where(Item.id < cursor)
+    if min_score is not None:
+        query = query.where(Item.score >= min_score)
+
+    rows = list((await session.scalars(query)).all())
+    next_cursor = rows[limit].id if len(rows) > limit else None
+    return rows[:limit], next_cursor
