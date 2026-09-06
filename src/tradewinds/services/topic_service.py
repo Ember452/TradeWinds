@@ -96,3 +96,14 @@ class TopicService:
 def schedule_after(topic: Topic, *, now: datetime) -> datetime:
     """按频率推进 next_run_at。"""
     return now + _CADENCE_PERIOD[topic.cadence]
+
+
+async def find_due_topic_ids(session: AsyncSession, *, now: datetime) -> list[int]:
+    """扫描到期主题(active 且 next_run_at 已过),供 beat 定时入队。"""
+    result = await session.scalars(
+        select(Topic.id)
+        .where(Topic.status == TopicStatus.active)
+        .where(Topic.next_run_at.is_not(None))
+        .where(Topic.next_run_at <= now)
+    )
+    return list(result)

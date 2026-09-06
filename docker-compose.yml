@@ -19,6 +19,34 @@ services:
       retries: 5
       start_period: 15s
 
+  worker:
+    build: .
+    command: python -m tradewinds.tasks.worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TRADEWINDS_DATABASE_URL: postgresql+asyncpg://tradewinds:${POSTGRES_PASSWORD:-tradewinds}@postgres:5432/tradewinds
+      TRADEWINDS_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build: .
+    command: python -m tradewinds.tasks.beat
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TRADEWINDS_DATABASE_URL: postgresql+asyncpg://tradewinds:${POSTGRES_PASSWORD:-tradewinds}@postgres:5432/tradewinds
+      TRADEWINDS_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped

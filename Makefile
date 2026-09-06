@@ -1,4 +1,4 @@
-.PHONY: lint fmt type test test-all dev migrate up down
+.PHONY: lint fmt type test test-all dev migrate up down worker beat
 
 lint:
 	uv run ruff check .
@@ -28,3 +28,9 @@ up:
 
 down:
 	docker compose down
+
+worker:
+	uv run python -m tradewinds.tasks.worker
+
+beat:
+	uv run python -m tradewinds.tasks.beat
