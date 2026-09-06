@@ -147,6 +147,8 @@ export function TopicDetailPage() {
 
       <PlanPreview plan={topic.plan} />
 
+      <FeedsPanel topicId={id} />
+
       <ReportsPanel topicId={id} />
 
       <Feed topicId={id} minScore={minScore} onMinScoreChange={setMinScore} />
@@ -161,6 +163,82 @@ interface Report {
   period_end: string;
   item_count: number;
   content: string;
+}
+
+interface FeedSource {
+  id: number;
+  title: string;
+  url: string;
+  status: "healthy" | "broken";
+  last_checked_at: string | null;
+}
+
+function FeedsPanel({ topicId }: { topicId: number }) {
+  const [feeds, setFeeds] = useState<FeedSource[]>([]);
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    api<FeedSource[]>(`/api/v1/topics/${topicId}/feeds`)
+      .then(setFeeds)
+      .catch(() => undefined);
+  }, [topicId]);
+  useEffect(load, [load]);
+
+  async function handleAdd(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    try {
+      await api(`/api/v1/topics/${topicId}/feeds`, { method: "POST", body: { url } });
+      setUrl("");
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "网络错误");
+    }
+  }
+
+  async function handleDelete(feedId: number) {
+    await api(`/api/v1/topics/${topicId}/feeds/${feedId}`, { method: "DELETE" }).catch(
+      () => undefined,
+    );
+    load();
+  }
+
+  return (
+    <section className="card">
+      <h2>自定义订阅源</h2>
+      <p className="meta">提交 RSS/Atom 地址,创建时校验有效性,每日自动复检;broken 源仍会尝试抓取并标注降级。</p>
+      <form onSubmit={handleAdd} className="topic-form">
+        <input
+          placeholder="https://example.com/feed.xml"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          required
+          minLength={8}
+          maxLength={2048}
+        />
+        <button type="submit">添加订阅源</button>
+      </form>
+      {error && <p className="error">{error}</p>}
+      <ul className="feed-list">
+        {feeds.map((feed) => (
+          <li key={feed.id} className="item-card">
+            <div className="item-head">
+              <a href={feed.url} target="_blank" rel="noreferrer">
+                {feed.title}
+              </a>
+              <span className={feed.status === "healthy" ? "meta" : "error"}>
+                {feed.status === "healthy" ? "正常" : "异常"}
+              </span>
+              <button type="button" className="secondary" onClick={() => handleDelete(feed.id)}>
+                删除
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 function ReportsPanel({ topicId }: { topicId: number }) {
@@ -296,7 +374,15 @@ function Feed({
         {items.map((item) => (
           <li key={item.id} className="card item-card">
             <div className="item-head">
-              <a href={item.url} target="_blank" rel="noreferrer">
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => {
+                  // 点击即偏好信号:静默上报,失败不打扰用户
+                  api(`/api/v1/items/${item.id}/click`, { method: "POST" }).catch(() => undefined);
+                }}
+              >
                 {item.title}
               </a>
               {item.score !== null && <span className="score">{item.score.toFixed(1)}</span>}
