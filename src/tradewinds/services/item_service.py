@@ -48,6 +48,21 @@ async def create_pending_items(
     return items
 
 
+async def recent_accepted_scores(
+    session: AsyncSession, topic_id: int, *, limit: int = 20
+) -> list[float]:
+    """该主题最近 limit 条 accepted 条目的评分(按 id 倒序),用于阈值自适应。"""
+    rows = await session.scalars(
+        select(Item.score)
+        .where(Item.topic_id == topic_id)
+        .where(Item.status == ItemStatus.accepted)
+        .where(Item.score.is_not(None))
+        .order_by(Item.id.desc())
+        .limit(limit)
+    )
+    return [float(score) for score in rows if score is not None]
+
+
 async def record_click(session: AsyncSession, user_id: int, item_id: int) -> bool:
     """记录一次点击;重复点击幂等(返回是否新建)。
 

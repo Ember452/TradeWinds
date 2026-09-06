@@ -16,8 +16,12 @@ from tradewinds.core.exceptions import TradeWindsError
 from tradewinds.models.item import Item, ItemStatus
 from tradewinds.models.topic import Topic
 from tradewinds.services.feed_service import FeedService
-from tradewinds.services.item_service import create_pending_items, load_seen_hashes
-from tradewinds.services.push_service import PushService
+from tradewinds.services.item_service import (
+    create_pending_items,
+    load_seen_hashes,
+    recent_accepted_scores,
+)
+from tradewinds.services.push_service import PushService, effective_immediate_threshold
 from tradewinds.services.report_service import ReportService
 from tradewinds.services.topic_service import schedule_after
 from tradewinds.tools.base import CandidateItem, SourceClient, SourceDegraded
@@ -67,6 +71,8 @@ class PipelineService:
         """手动/定时触发共用入口;重复 run 依赖指纹去重,不产生重复条目。"""
         plan = _plan_of(topic)
         seen_hashes = await load_seen_hashes(self._session, topic.id)
+        # 近期评分历史在新建条目前取,天然排除本次条目
+        recent_scores = await recent_accepted_scores(self._session, topic.id)
         extra_clients: list[SourceClient] = []
         if self._feed_service is not None and self._feed_client_factory is not None:
             for feed in await self._feed_service.load_topic_feeds(topic.id):
@@ -110,9 +116,8 @@ class PipelineService:
 
         if self._push_service is not None and accepted_items:
             await self._push_service.prepare_digest(topic, accepted_items)
-            high_score = [
-                item for item in accepted_items if (item.score or 0) >= self._immediate_threshold
-            ]
+            threshold = effective_immediate_threshold(recent_scores, self._immediate_threshold)
+            high_score = [item for item in accepted_items if (item.score or 0) >= threshold]
             if high_score:
                 await self._push_service.prepare_immediate(
                     topic, high_score, suppress_hours=self._suppress_hours

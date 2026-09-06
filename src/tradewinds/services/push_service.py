@@ -1,7 +1,8 @@
 """推送服务:内容级去重、push_log 审计、投递;入队分发由组合方注入。"""
 
 import hashlib
-from collections.abc import Callable
+import statistics
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 
 import structlog
@@ -21,6 +22,25 @@ logger = structlog.get_logger(__name__)
 def digest_key_of(urls: list[str]) -> str:
     """内容指纹:URL 排序后哈希,与条目顺序无关。"""
     return hashlib.sha256("|".join(sorted(urls)).encode()).hexdigest()
+
+
+def effective_immediate_threshold(
+    recent_scores: Sequence[float],
+    global_threshold: float,
+    *,
+    min_history: int = 10,
+    adjust: float = 1.0,
+) -> float:
+    """按主题近期表现自适应即时推送阈值(扩展计划 §3 阈值动态化)。
+
+    冷启动(历史不足 min_history)用全局值;否则以近期评分中位数在
+    [global-adjust, global+adjust] 内浮动:高分主题抬高门槛避免刷屏,
+    低分主题轻微下调浮出精华。
+    """
+    if len(recent_scores) < min_history:
+        return global_threshold
+    median = statistics.median(recent_scores)
+    return min(global_threshold + adjust, max(global_threshold - adjust, median))
 
 
 class PushService:
