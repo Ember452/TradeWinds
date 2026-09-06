@@ -1,0 +1,98 @@
+[
+  {
+    "id": "release-summary",
+    "description": "版本发布条目:摘要须含版本与关键能力,理由点明与主题关系",
+    "topic": {"name": "Agent 框架动态", "description": "LLM Agent 框架的版本与能力演进"},
+    "item": {
+      "url": "https://github.com/example/agent-kit",
+      "title": "agent-kit v3.0 released",
+      "source": "github",
+      "content": "agent-kit v3.0 adds parallel tool execution, a tracing dashboard and drop-in eval suites."
+    },
+    "model_output": {
+      "summary": "agent-kit 发布 v3.0,新增工具并行执行、内置追踪面板与开箱即用的评测套件。",
+      "reason": "条目直接对应主题关注的框架版本演进与执行能力变化。"
+    },
+    "expect": {"entity": "v3.0", "min_summary_len": 15, "max_summary_len": 120}
+  },
+  {
+    "id": "research-paper-summary",
+    "description": "论文条目:摘要复述核心结论,不夸大",
+    "topic": {"name": "RAG 技术跟踪", "description": "检索增强生成的算法与评测"},
+    "item": {
+      "url": "https://arxiv.org/abs/2609.0777",
+      "title": "Late Chunking Beats Naive Chunking for Long-Context RAG",
+      "source": "arxiv",
+      "content": "We show late chunking improves retrieval recall by 12% over naive chunking on three benchmarks, without extra compute."
+    },
+    "model_output": {
+      "summary": "论文提出 late chunking,在三个基准上把检索召回率比朴素分块提升 12%,且不增加计算量。",
+      "reason": "涉及主题核心关注点:RAG 分块策略与召回率评测。"
+    },
+    "expect": {"entity": "12%", "min_summary_len": 15, "max_summary_len": 120}
+  },
+  {
+    "id": "community-discussion-summary",
+    "description": "社区讨论条目:摘要提炼共识而非罗列楼层",
+    "topic": {"name": "工程实践", "description": "一线团队的 LLM 应用工程实践"},
+    "item": {
+      "url": "https://news.ycombinator.com/item?id=35000999",
+      "title": "Ask HN: How do you eval LLM features in CI?",
+      "source": "hackernews",
+      "content": "Thread discussing golden-set based evals, LLM-as-judge pitfalls and cost control in CI pipelines."
+    },
+    "model_output": {
+      "summary": "HN 讨论在 CI 中评测 LLM 功能的实践:金标集、LLM 评审的局限与成本控制是共识焦点。",
+      "reason": "主题关注一线工程实践,该讨论覆盖评测落地的真实痛点。"
+    },
+    "expect": {"entity": "CI", "min_summary_len": 15, "max_summary_len": 120}
+  },
+  {
+    "id": "no-speculation-summary",
+    "description": "内容稀薄的条目:摘要如实含糊,不得脑补数字",
+    "topic": {"name": "Agent 生态", "description": "Agent 生态动态"},
+    "item": {
+      "url": "https://blog.example/teaser",
+      "title": "Something big is coming from Acme AI",
+      "source": "web",
+      "content": "Acme AI published a teaser page with a countdown, no product details were disclosed."
+    },
+    "model_output": {
+      "summary": "Acme AI 发布倒计时预告页,尚未披露任何产品细节。",
+      "reason": "可能预示 Agent 产品动向,值得持续观察。"
+    },
+    "expect": {"forbidden_numbers": true, "min_summary_len": 10, "max_summary_len": 120}
+  },
+  {
+    "id": "bilingual-summary",
+    "description": "中文摘要保留英文专有名词",
+    "topic": {"name": "开源项目", "description": "值得关注的开源项目"},
+    "item": {
+      "url": "https://github.com/example/vecdb",
+      "title": "vecdb 0.9: HNSW improvements",
+      "source": "github",
+      "content": "vecdb 0.9 improves HNSW memory usage by 30% and adds filtered search."
+    },
+    "model_output": {
+      "summary": "vecdb 0.9 优化 HNSW 内存占用 30%,并新增过滤检索能力。",
+      "reason": "开源向量库的重要版本,符合主题对值得关注项目的定义。"
+    },
+    "expect": {"entity": "vecdb", "min_summary_len": 10, "max_summary_len": 120}
+  },
+  {
+    "id": "reason-ties-to-topic",
+    "description": "reason 必须能把条目和主题意图连起来",
+    "topic": {"name": "LLM 安全", "description": "越狱、提示注入与防御进展"},
+    "item": {
+      "url": "https://security.example/jailbreak-bench",
+      "title": "JailbreakBench v2 expands attack coverage",
+      "source": "arxiv",
+      "content": "JailbreakBench v2 adds 200 new adversarial prompts and standardized defense baselines."
+    },
+    "model_output": {
+      "summary": "JailbreakBench v2 扩充 200 条对抗样本并标准化防御基线。",
+      "reason": "为主题关注的越狱攻防提供了可复用的评测基准。"
+    },
+    "expect": {"entity": "JailbreakBench", "min_summary_len": 10, "max_summary_len": 120, "reason_min_len": 8}
+  }
+]

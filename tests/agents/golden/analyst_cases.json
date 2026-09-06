@@ -1,0 +1,119 @@
+[
+  {
+    "id": "core-paper-high",
+    "description": "主题核心论文应得高分",
+    "criteria": ["主题围绕 LLM Agent 的架构与工具调用", "排除纯营销稿"],
+    "item": {
+      "url": "https://arxiv.org/abs/2609.0001",
+      "title": "Tool Use Orchestration in LLM Agents: A Survey",
+      "content": "We survey tool-use patterns in LLM agents, covering planning, execution and reflection loops."
+    },
+    "model_output": {
+      "items": [{"url": "https://arxiv.org/abs/2609.0001", "score": 9.0, "cluster_key": "agent-survey"}]
+    },
+    "expect": {"url": "https://arxiv.org/abs/2609.0001", "min_score": 7, "max_score": 10}
+  },
+  {
+    "id": "marketing-noise-low",
+    "description": "营销噪音应得低分",
+    "criteria": ["与 Agent 技术直接相关", "排除纯营销稿"],
+    "item": {
+      "url": "https://vendor.example/promo",
+      "title": "Revolutionize your workflow with our amazing AI!!!",
+      "content": "Buy now! Limited time discount for the best AI platform ever."
+    },
+    "model_output": {
+      "items": [{"url": "https://vendor.example/promo", "score": 1.5, "cluster_key": "spam"}]
+    },
+    "expect": {"url": "https://vendor.example/promo", "min_score": 0, "max_score": 3}
+  },
+  {
+    "id": "same-event-shares-cluster",
+    "description": "同一事件的多篇报道共享聚类键",
+    "criteria": ["与 Agent 框架发布相关"],
+    "item": {
+      "url": "https://news.example/framework-release",
+      "title": "Acme releases AgentKit 2.0 with multi-tool orchestration",
+      "content": "Acme shipped AgentKit 2.0, adding parallel tool calls and an eval harness."
+    },
+    "model_output": {
+      "items": [
+        {"url": "https://news.example/framework-release", "score": 8.0, "cluster_key": "agentkit-2-release"},
+        {"url": "https://blog.example/agentkit-2-deep-dive", "score": 7.5, "cluster_key": "agentkit-2-release"}
+      ]
+    },
+    "expect": {"shared_cluster": true}
+  },
+  {
+    "id": "offtopic-low",
+    "description": "与主题无关的条目应低于 4 分",
+    "criteria": ["仅关注 LLM Agent 技术", "烹饪/旅游等内容不相关"],
+    "item": {
+      "url": "https://food.example/recipe",
+      "title": "10 分钟搞定意式番茄肉酱面",
+      "content": "经典番茄肉酱面的家庭做法,附步骤与小贴士。"
+    },
+    "model_output": {
+      "items": [{"url": "https://food.example/recipe", "score": 0.5, "cluster_key": "unmatched"}]
+    },
+    "expect": {"url": "https://food.example/recipe", "min_score": 0, "max_score": 3.9}
+  },
+  {
+    "id": "borderline-partial-relevance",
+    "description": "沾边但不核心的条目落在中段分数",
+    "criteria": ["关注 LLM Agent 技术", "泛 AI 产品报道酌情降分"],
+    "item": {
+      "url": "https://tech.example/ai-roundup",
+      "title": "本周 AI 行业综述:大模型、芯片与 Agent 生态",
+      "content": "综述性周报,其中一小节提及 Agent 框架的融资动态。"
+    },
+    "model_output": {
+      "items": [{"url": "https://tech.example/ai-roundup", "score": 5.0, "cluster_key": "ai-roundup"}]
+    },
+    "expect": {"url": "https://tech.example/ai-roundup", "min_score": 4, "max_score": 6.9}
+  },
+  {
+    "id": "all-inputs-covered",
+    "description": "每条输入都必须出现在输出中",
+    "criteria": ["与 LLM 应用相关"],
+    "item": {
+      "url": "https://multi.example/digest",
+      "title": "Multi-item digest page",
+      "content": "A digest page containing three short items about LLM tooling, evals and deployment."
+    },
+    "model_output": {
+      "items": [
+        {"url": "https://multi.example/digest", "score": 6.0, "cluster_key": "llm-tooling"}
+      ]
+    },
+    "expect": {"coverage": "all_inputs_in_output"}
+  },
+  {
+    "id": "high-score-consistency",
+    "description": "高分判定与判定标准严格对应:开源项目发布",
+    "criteria": ["关注可用的 Agent 开源项目与重大版本发布"],
+    "item": {
+      "url": "https://github.com/example/agent-kit",
+      "title": "agent-kit v3.0: parallel tool execution, tracing dashboard",
+      "content": "Major release adding parallel tool execution and a built-in tracing dashboard."
+    },
+    "model_output": {
+      "items": [{"url": "https://github.com/example/agent-kit", "score": 8.5, "cluster_key": "agent-kit-3"}]
+    },
+    "expect": {"url": "https://github.com/example/agent-kit", "min_score": 7, "max_score": 10}
+  },
+  {
+    "id": "stale-news-lower-band",
+    "description": "窗口外的旧闻应降分",
+    "criteria": ["时效性:窗口外的旧闻降分"],
+    "item": {
+      "url": "https://news.example/old-release",
+      "title": "AgentKit 1.0 initial release (two years ago)",
+      "content": "Historical note about the original 1.0 release long past its window."
+    },
+    "model_output": {
+      "items": [{"url": "https://news.example/old-release", "score": 3.0, "cluster_key": "agentkit-1"}]
+    },
+    "expect": {"url": "https://news.example/old-release", "min_score": 0, "max_score": 5}
+  }
+]
