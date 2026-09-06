@@ -268,3 +268,10 @@
 - Task 4.2 工具集当前为 search_arxiv / search_hackernews / search_github / fetch_page;计划中的 web_search 通用网页搜索因无免费稳定的搜索 API 客户端(Task 2.5 未含 websearch 源)暂缓,补齐后只需在 build_chat_registry 增加一个适配器。
 - 流式实现为"循环完成后 citations→delta→done"的分帧输出(ToolLoop 走 complete 而非 stream),未做循环中途的 token 级流式;断连保护由此简化为"持久化先于流式输出 + shield 后台任务",验收语义(断连不丢引用与计量)已满足。真正 token 级流式需 ToolLoop 支持 provider.stream 的工具循环变体,记入 Phase 5 后优化项。
 - 每用户并发对话限流为单 api 容器进程内实现(UserConcurrencyLimiter);多副本部署需改 Redis 计数,随扩展计划处理。
+
+**Phase 5(2026-09-06 完成,commit cd1f388…)**
+
+- Task 5.1/5.2/5.3 代码完成,验证方式为 `npm run lint` + `tsc --noEmit` + `vite build` 全绿与 CI frontend job;真实浏览器端到端(注册→订阅→自动执行→收邮件)属于 Task 5.4 上线验收清单,待基础设施就绪后执行。
+- Task 5.4 上线验收清单(Sentry、告警演练、Lighthouse、在线地址回写 README)依赖 VPS/域名/Secrets,暂缓;部署流水线保持手动触发。
+- 主题计划预览的"修改"通过编辑描述/频率触发 Planner 重编译实现(API 不支持直接改 plan 字段,与后端契约一致)。
+- 前端 SSE 消费用 fetch 流式读取手动解析(POST + Authorization 头,EventSource 不适用);Feed 无限滚动配合后端 keyset 游标。
