@@ -1,10 +1,12 @@
 """Feed keyset 分页集成测试:分页正确性、索引使用、跨用户 404。
 
-标记 integration:CI 起 PostgreSQL/Redis service 运行。
+标记 integration:CI 起 PostgreSQL/Redis service 运行;Planner 以假件
+替换(本文件只测分页与查询,不触发真实 LLM)。
 """
 
 import os
 import uuid
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -16,11 +18,28 @@ from tradewinds.api.app import create_app
 pytestmark = pytest.mark.integration
 
 
+class FakePlanner:
+    async def compile(self, description: str, cadence: Any) -> Any:
+        from tradewinds.agents.schemas.retrieval_plan import RetrievalPlan
+
+        return RetrievalPlan.model_validate(
+            {
+                "keywords": ["feed", "test"],
+                "sources": ["arxiv"],
+                "arxiv_categories": [],
+                "github": None,
+                "window_days": 7,
+                "relevance_criteria": ["相关"],
+            }
+        )
+
+
 @pytest.fixture
 def client():
     if "TRADEWINDS_DATABASE_URL" not in os.environ:
         pytest.skip("需要 TRADEWINDS_DATABASE_URL 指向真实 PostgreSQL")
     with TestClient(create_app()) as test_client:
+        test_client.app.state.planner = FakePlanner()
         yield test_client
 
 

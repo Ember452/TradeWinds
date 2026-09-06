@@ -61,7 +61,15 @@ class FakeSourceClient:
 
 
 class FakeRunner:
-    async def run(self, prompt: str, response_model: Any, *, model: Any) -> Any:
+    async def run(
+        self,
+        prompt: str,
+        response_model: Any,
+        *,
+        model: Any,
+        role: str | None = None,
+        user_id: int | None = None,
+    ) -> Any:
         if response_model is AnalystOutput:
             return AnalystOutput(
                 items=[ItemScore(url="https://example.com/placeholder", score=9.0, cluster_key="k")]
@@ -88,7 +96,15 @@ def client():
                 )
 
         class PinnedRunner(FakeRunner):
-            async def run(self, prompt: str, response_model: Any, *, model: Any) -> Any:
+            async def run(
+                self,
+                prompt: str,
+                response_model: Any,
+                *,
+                model: Any,
+                role: str | None = None,
+                user_id: int | None = None,
+            ) -> Any:
                 if response_model is AnalystOutput:
                     return AnalystOutput(
                         items=[

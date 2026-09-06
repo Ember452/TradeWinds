@@ -61,7 +61,15 @@ class FakeSourceClient:
 
 
 class FakeRunner:
-    async def run(self, prompt: str, response_model: Any, *, model: Any) -> Any:
+    async def run(
+        self,
+        prompt: str,
+        response_model: Any,
+        *,
+        model: Any,
+        role: str | None = None,
+        user_id: int | None = None,
+    ) -> Any:
         if response_model is AnalystOutput:
             # item-0 与 item-1 同聚类且超阈值;item-2 低于即时阈值但仍 accepted
             return AnalystOutput(
@@ -91,7 +99,7 @@ def client():
     celery_app.conf.task_always_eager = False
 
 
-async def _seed_score_history(topic_id: int, score: str, count: int, marker: str) -> None:
+async def _seed_score_history(topic_id: int, score: float, count: int, marker: str) -> None:
     """直插 accepted 历史评分,构造"高分主题"画像。"""
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -186,7 +194,7 @@ def test_adaptive_threshold_suppresses_on_high_history(client: TestClient) -> No
     ).json()["topic"]["id"]
 
     # 冷启动基线:无历史时 8.5 分条目(阈值 8.0)会触发即时推送
-    asyncio.run(_seed_score_history(topic_id, "9.0", 12, uuid.uuid4().hex[:6]))
+    asyncio.run(_seed_score_history(topic_id, 9.0, 12, uuid.uuid4().hex[:6]))
     # 12 条 9.0 分历史 → 中位数 9.0 → 有效阈值抬到 9.0
     run = client.post(f"/api/v1/topics/{topic_id}/run", headers=headers)
     assert run.status_code == 200, run.text

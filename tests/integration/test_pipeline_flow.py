@@ -71,7 +71,15 @@ class FakeSourceClient:
 class FakeRunner:
     """按 response_model 分流:Analyst 输出固定评分,Editor 输出固定摘要。"""
 
-    async def run(self, prompt: str, response_model: Any, *, model: Any) -> Any:
+    async def run(
+        self,
+        prompt: str,
+        response_model: Any,
+        *,
+        model: Any,
+        role: str | None = None,
+        user_id: int | None = None,
+    ) -> Any:
         if response_model is AnalystOutput:
             return AnalystOutput(
                 items=[

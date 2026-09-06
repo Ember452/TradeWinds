@@ -3,6 +3,7 @@
 标记 integration:本地无数据库时默认跳过,CI 起 postgres service 运行。
 """
 
+import asyncio
 import os
 
 import pytest
@@ -37,11 +38,12 @@ async def _table_columns(database_url: str, table: str) -> set[str]:
         await engine.dispose()
 
 
-async def test_upgrade_creates_tables_and_downgrade_reverts(alembic_config: Config) -> None:
+def test_upgrade_creates_tables_and_downgrade_reverts(alembic_config: Config) -> None:
+    # 必须是同步测试:alembic env.py 内部 asyncio.run,async 测试的事件循环会与之冲突
     url = os.environ["TRADEWINDS_DATABASE_URL"]
 
     command.upgrade(alembic_config, "head")
-    user_columns = await _table_columns(url, "users")
+    user_columns = asyncio.run(_table_columns(url, "users"))
     assert {
         "id",
         "email",
@@ -50,7 +52,7 @@ async def test_upgrade_creates_tables_and_downgrade_reverts(alembic_config: Conf
         "quota_topic_max",
         "created_at",
     } <= user_columns
-    topic_columns = await _table_columns(url, "topics")
+    topic_columns = asyncio.run(_table_columns(url, "topics"))
     assert {
         "id",
         "user_id",
@@ -63,7 +65,7 @@ async def test_upgrade_creates_tables_and_downgrade_reverts(alembic_config: Conf
         "next_run_at",
         "created_at",
     } <= topic_columns
-    item_columns = await _table_columns(url, "items")
+    item_columns = asyncio.run(_table_columns(url, "items"))
     assert {
         "id",
         "topic_id",
@@ -82,6 +84,6 @@ async def test_upgrade_creates_tables_and_downgrade_reverts(alembic_config: Conf
     } <= item_columns
 
     command.downgrade(alembic_config, "base")
-    assert not await _table_columns(url, "users")
-    assert not await _table_columns(url, "topics")
-    assert not await _table_columns(url, "items")
+    assert not asyncio.run(_table_columns(url, "users"))
+    assert not asyncio.run(_table_columns(url, "topics"))
+    assert not asyncio.run(_table_columns(url, "items"))

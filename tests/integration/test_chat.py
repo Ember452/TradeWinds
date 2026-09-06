@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from tradewinds.agents.orchestrator.llm import Usage
+from tradewinds.agents.orchestrator.llm import ModelTier, Usage
 from tradewinds.agents.orchestrator.loop import LoopResult, ToolTrace
 from tradewinds.api.app import create_app
 
@@ -19,7 +19,7 @@ pytestmark = pytest.mark.integration
 
 
 class FakeToolLoop:
-    model = "fake-mid"
+    model = ModelTier.mid
 
     def __init__(self) -> None:
         self.calls = 0

@@ -83,7 +83,15 @@ class FakeSourceClient:
 
 
 class FakeRunner:
-    async def run(self, prompt: str, response_model: Any, *, model: Any) -> Any:
+    async def run(
+        self,
+        prompt: str,
+        response_model: Any,
+        *,
+        model: Any,
+        role: str | None = None,
+        user_id: int | None = None,
+    ) -> Any:
         if response_model is AnalystOutput:
             # 只给自定义源条目评分,聚焦断言
             return AnalystOutput(
