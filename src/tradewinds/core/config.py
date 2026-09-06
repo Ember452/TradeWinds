@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     loop_total_timeout_seconds: float = Field(default=120.0, description="工具循环总超时(秒)")
     loop_max_context_chars: int = Field(default=24000, description="工具循环上下文截断阈值(字符)")
 
+    # --- 管道 ---
+    pipeline_score_threshold: float = Field(
+        default=6.0, description="进 Editor 的评分下限,低于此值条目置 rejected(暂定值)"
+    )
+
     # --- 可观测 ---
     log_level: str = Field(default="INFO", description="日志级别")
 
