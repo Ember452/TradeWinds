@@ -1,4 +1,4 @@
-.PHONY: lint fmt type test test-all dev migrate up down worker beat frontend backup restore
+.PHONY: lint fmt type test test-all dev migrate up down worker beat frontend backup restore seed demo
 
 lint:
 	uv run ruff check .
@@ -43,3 +43,12 @@ backup:
 
 restore:
 	./deploy/restore.sh $(file)
+
+seed:
+	docker compose exec -T api python -m tradewinds.demo_seed
+
+# 一键演示:起全栈(含 Mailpit)→ 迁移 → 演示数据 → 打印入口
+demo: up
+	docker compose exec -T api alembic upgrade head
+	docker compose exec -T api python -m tradewinds.demo_seed
+	@echo "演示入口: 前端 http://localhost | Mailpit 收件箱 http://localhost:8025 | 账号 demo@tradewinds.local / demo12345"

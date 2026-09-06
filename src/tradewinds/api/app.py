@@ -4,7 +4,9 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from tradewinds.agents.chat_tools import build_chat_registry
 from tradewinds.agents.orchestrator.embeddings import OpenAICompatibleEmbedder
@@ -109,11 +111,36 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     app.state.push_dispatch = push_dispatch
 
+    # SPA 静态托管:配置了 static_dir 且产物就绪时,前端由 api 容器直接服务
+    mount_spa(app, settings.static_dir)
+
     yield
 
     await components.http_client.aclose()
     await redis.aclose()
     await engine.dispose()
+
+
+def mount_spa(app: FastAPI, static_dir: str) -> None:
+    """托管前端构建产物(SPA);目录为空或缺 index.html 时不挂载(本地开发走 vite)。"""
+    if not static_dir:
+        return
+    dist = Path(static_dir)
+    if not (dist / "index.html").is_file():
+        return
+    assets = dist / "assets"
+    if assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets), name="spa_assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str) -> FileResponse:
+        if full_path == "api" or full_path.startswith("api/"):
+            # /api 未知路径保持 404 语义,不回落 SPA 页面
+            raise HTTPException(status_code=404)
+        candidate = dist / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(dist / "index.html")
 
 
 def create_app() -> FastAPI:

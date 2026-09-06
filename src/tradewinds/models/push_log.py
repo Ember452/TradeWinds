@@ -21,6 +21,7 @@ class PushStatus(enum.StrEnum):
 class PushType(enum.StrEnum):
     digest = "digest"
     immediate = "immediate"
+    report = "report"
 
 
 class PushLog(Base):
@@ -42,7 +43,7 @@ class PushLog(Base):
     status: Mapped[PushStatus] = mapped_column(
         Enum(PushStatus, native_enum=False, length=16), nullable=False, default=PushStatus.pending
     )
-    # digest=周期汇总;immediate=单条高分即时推送
+    # digest=周期汇总;immediate=单条高分即时推送;report=周期报告推送
     push_type: Mapped[PushType] = mapped_column(
         Enum(PushType, native_enum=False, length=16),
         nullable=False,

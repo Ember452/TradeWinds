@@ -121,6 +121,37 @@ def test_run_creates_and_updates_period_report(client: TestClient) -> None:
     assert reports[0]["item_count"] == 2
 
 
+def test_run_pushes_report_email_once(client: TestClient) -> None:
+    """报告 upsert 后推送一次报告邮件;同周期重复 run 幂等不重推。"""
+    import asyncio
+
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    headers = _auth_headers(client)
+    topic_id = _create_topic_and_run(client, headers)
+    client.post(f"/api/v1/topics/{topic_id}/run", headers=headers)
+
+    async def _report_logs() -> list[dict[str, Any]]:
+        engine = create_async_engine(os.environ["TRADEWINDS_DATABASE_URL"])
+        try:
+            async with engine.connect() as conn:
+                rows = await conn.execute(
+                    text(
+                        "SELECT push_type, digest_key, status FROM push_log "
+                        "WHERE topic_id = :t AND push_type = 'report'"
+                    ),
+                    {"t": topic_id},
+                )
+                return [dict(r._mapping) for r in rows]
+        finally:
+            await engine.dispose()
+
+    logs = asyncio.run(_report_logs())
+    assert len(logs) == 1
+    assert logs[0]["digest_key"].startswith("report:")
+
+
 def test_share_flow_and_public_access(client: TestClient) -> None:
     headers = _auth_headers(client)
     topic_id = _create_topic_and_run(client, headers)

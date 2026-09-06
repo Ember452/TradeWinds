@@ -11,10 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tradewinds.models.item import Item
 from tradewinds.models.push_log import PushLog, PushStatus, PushType
+from tradewinds.models.report import Report
 from tradewinds.models.topic import Topic
 from tradewinds.models.user import User
 from tradewinds.push.base import PushChannel
-from tradewinds.push.templates import render_digest_email, render_item_alert_email
+from tradewinds.push.templates import (
+    render_digest_email,
+    render_item_alert_email,
+    render_report_email,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -22,6 +27,22 @@ logger = structlog.get_logger(__name__)
 def digest_key_of(urls: list[str]) -> str:
     """内容指纹:URL 排序后哈希,与条目顺序无关。"""
     return hashlib.sha256("|".join(sorted(urls)).encode()).hexdigest()
+
+
+def report_digest_key(report_id: int) -> str:
+    """报告推送的内容键:同一报告只推一次。"""
+    return f"report:{report_id}"
+
+
+def _report_id_of(digest_key: str) -> int | None:
+    """从 digest_key 解析报告 id;非报告键或格式非法返回 None。"""
+    prefix = "report:"
+    if not digest_key.startswith(prefix):
+        return None
+    try:
+        return int(digest_key[len(prefix) :])
+    except ValueError:
+        return None
 
 
 def effective_immediate_threshold(
@@ -139,6 +160,37 @@ class PushService:
             )
         return created
 
+    async def prepare_report(self, report: Report) -> PushLog | None:
+        """周期报告推送:同报告幂等(digest_key=report:<id>),仅首次创建时入队。"""
+        user = await self._session.get(User, report.user_id)
+        if user is None:
+            return None
+
+        key = report_digest_key(report.id)
+        existing = await self._session.scalar(
+            select(PushLog).where(PushLog.topic_id == report.topic_id, PushLog.digest_key == key)
+        )
+        if existing is not None:
+            return None
+
+        log = PushLog(
+            topic_id=report.topic_id,
+            user_id=report.user_id,
+            channel=self._channel.name,
+            digest_key=key,
+            item_ids=report.item_ids,
+            recipient=user.email,
+            status=PushStatus.pending,
+            push_type=PushType.report,
+        )
+        self._session.add(log)
+        await self._session.commit()
+        await self._session.refresh(log)
+        if self._dispatch is not None:
+            self._dispatch(log.id)
+        logger.info("report_push_prepared", push_log_id=log.id, report_id=report.id)
+        return log
+
     async def _cluster_suppressed(
         self, topic_id: int, cluster_key: str, *, suppress_hours: int, now: datetime
     ) -> bool:
@@ -172,7 +224,18 @@ class PushService:
             await self._session.commit()
             return PushStatus.failed
 
-        if log.push_type is PushType.immediate and len(items) == 1:
+        if log.push_type is PushType.report:
+            report_id = _report_id_of(log.digest_key)
+            report = await self._session.get(Report, report_id) if report_id is not None else None
+            if report is None:
+                log.status = PushStatus.failed
+                log.error = "报告已不存在"
+                await self._session.commit()
+                return log.status
+            payload = render_report_email(
+                topic=topic, report=report, to=log.recipient, app_base_url=self._app_base_url
+            )
+        elif log.push_type is PushType.immediate and len(items) == 1:
             payload = render_item_alert_email(
                 topic=topic, item=items[0], to=log.recipient, app_base_url=self._app_base_url
             )

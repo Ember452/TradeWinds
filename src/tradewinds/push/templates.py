@@ -3,6 +3,7 @@
 from html import escape
 
 from tradewinds.models.item import Item
+from tradewinds.models.report import Report, ReportPeriodType
 from tradewinds.models.topic import Topic
 from tradewinds.push.base import PushPayload
 
@@ -64,6 +65,34 @@ def render_item_alert_email(*, topic: Topic, item: Item, to: str, app_base_url: 
             item.url,
             item.summary or "",
             item.reason or "",
+            "",
+            f"退订此主题:{unsubscribe_url}",
+        ]
+    )
+    return PushPayload(to=to, subject=subject, html=html, text=text)
+
+
+def render_report_email(*, topic: Topic, report: Report, to: str, app_base_url: str) -> PushPayload:
+    """周期报告邮件:统计区间 + 报告内容,含退订链接。"""
+    unsubscribe_url = f"{app_base_url}/api/v1/topics/{topic.id}/mute"
+    kind = "周报" if report.period_type is ReportPeriodType.weekly else "日报"
+    span = f"{report.period_start.date().isoformat()} ~ {report.period_end.date().isoformat()}"
+    subject = (
+        f"TradeWinds 周期报告:{topic.name} {kind}({report.period_start.date().isoformat()} 起)"
+    )
+
+    html = (
+        "<html><body>"
+        f"<p>您订阅的主题「{escape(topic.name)}」的{kind}已生成({escape(span)},UTC):</p>"
+        f"<pre>{escape(report.content)}</pre>"
+        f'<p><a href="{escape(unsubscribe_url)}">退订此主题</a></p>'
+        "</body></html>"
+    )
+    text = "\n".join(
+        [
+            f"您订阅的主题「{topic.name}」的{kind}已生成({span},UTC):",
+            "",
+            report.content,
             "",
             f"退订此主题:{unsubscribe_url}",
         ]

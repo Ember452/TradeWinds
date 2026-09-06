@@ -73,7 +73,11 @@ class Settings(BaseSettings):
     app_base_url: str = Field(
         default="http://localhost:8000", description="对外 base URL(退订链接用)"
     )
-    email_enabled: bool = Field(default=False, description="是否启用邮件发送;关闭时推送记 skipped")
+    # --- 前端静态托管 ---
+    static_dir: str = Field(
+        default="",
+        description="前端构建产物目录(含 index.html);为空不托管 SPA(本地开发走 vite dev)",
+    )
     smtp_host: str = Field(default="", description="SMTP 主机;为空视为未配置")
     smtp_port: int = Field(default=587, description="SMTP 端口")
     smtp_user: str = Field(default="", description="SMTP 用户名")

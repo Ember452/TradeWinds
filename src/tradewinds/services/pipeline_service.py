@@ -133,7 +133,9 @@ class PipelineService:
                     topic, high_score, suppress_hours=self._suppress_hours
                 )
         if self._report_service is not None:
-            await self._report_service.upsert_period_report(topic, now=now)
+            report = await self._report_service.upsert_period_report(topic, now=now)
+            if self._push_service is not None and report is not None:
+                await self._push_service.prepare_report(report)
 
         if collected.degraded:
             logger.warning(

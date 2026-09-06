@@ -7,6 +7,13 @@ services:
     environment:
       TRADEWINDS_DATABASE_URL: postgresql+asyncpg://tradewinds:${POSTGRES_PASSWORD:-tradewinds}@postgres:5432/tradewinds
       TRADEWINDS_REDIS_URL: redis://redis:6379/0
+      # 演示默认值(优先级高于 .env):邮件投递到 Mailpit 本地收件箱,SPA 由 api 容器托管
+      TRADEWINDS_APP_BASE_URL: http://localhost
+      TRADEWINDS_SMTP_HOST: mailpit
+      TRADEWINDS_SMTP_PORT: "1025"
+      TRADEWINDS_SMTP_START_TLS: "false"
+      TRADEWINDS_SMTP_FROM: demo@tradewinds.local
+      TRADEWINDS_STATIC_DIR: /app/static
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,6 +34,11 @@ services:
     environment:
       TRADEWINDS_DATABASE_URL: postgresql+asyncpg://tradewinds:${POSTGRES_PASSWORD:-tradewinds}@postgres:5432/tradewinds
       TRADEWINDS_REDIS_URL: redis://redis:6379/0
+      TRADEWINDS_APP_BASE_URL: http://localhost
+      TRADEWINDS_SMTP_HOST: mailpit
+      TRADEWINDS_SMTP_PORT: "1025"
+      TRADEWINDS_SMTP_START_TLS: "false"
+      TRADEWINDS_SMTP_FROM: demo@tradewinds.local
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,6 +84,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.31.1
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
 
   caddy:
     image: caddy:2-alpine

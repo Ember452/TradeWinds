@@ -309,3 +309,14 @@
 - 阈值动态化:effective_immediate_threshold 按主题近期评分中位数在全局阈值 ±1.0 内自适应,冷启动(<10 条)用全局值;高分主题抬门槛避免刷屏,低分主题浮出精华;集成测试验证高分历史抑制 8.5 分条目。
 - RAG 已读内容检索:pgvector 方案(扩展计划明确不引入独立向量库);0010 迁移启用 vector 扩展(向量列不锁维度,ANN 索引留待规模触发);管道 run 后对 accepted 条目生成嵌入(upsert,失败降级);GET /items/search 与对话工具 search_history 限定本人条目;总开关 TRADEWINDS_EMBEDDING_MODEL 默认关闭。compose/CI postgres 切换 pgvector/pgvector:pg16。
 - web_search 通用搜索工具维持暂缓(无免费稳定搜索 API)。
+
+**演示就绪(2026-09-06,项目定位调整后)**
+
+> 项目定位调整为面试可演示的作品集项目(design.md v0.3),原"待上线"项转为演示等价物,实施见 [2026-09-06-demo-readiness-plan.md](2026-09-06-demo-readiness-plan.md)。
+
+- Task 5.4 上线验收清单(域名 HTTPS、Sentry 演练、Lighthouse、在线地址)随定位调整移除(N6),不做。
+- 周期报告邮件推送接线完成(原"待 SMTP 配置"项):PushType 增 report、PushService.prepare_report(digest_key=report:<id> 幂等)、管道报告 upsert 后推送;无迁移(native_enum=False)。
+- Mailpit 演示邮箱接入 compose(api/worker 演示 SMTP 由 environment 注入,优先级高于 .env);顺带清理死配置 TRADEWINDS_EMAIL_ENABLED(定义后从未被消费,邮件开关实为 SMTP host/sender 是否为空)。
+- 演示数据 seed:`tradewinds/demo_seed.py`(演示账号/主题/条目/报告/会话/点击/推送历史,幂等),`make seed`。
+- 前端静态托管:api 容器经 `mount_spa` 托管构建产物(TRADEWINDS_STATIC_DIR,Dockerfile 增 node 构建阶段);`make demo` 一键起全栈+迁移+seed。
+- 本机无 Docker:compose/集成链路未实跑,单测(190)与 lint/mypy 全绿,集成测试与 make demo 走查待 CI 或有 Docker 环境。
