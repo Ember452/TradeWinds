@@ -7,8 +7,11 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.14.0",
     "asyncpg>=0.30.0",
+    "bcrypt>=4.2.0",
     "fastapi>=0.115.0",
     "pydantic-settings>=2.6.0",
+    "pydantic[email]>=2.9.0",
+    "pyjwt>=2.10.0",
     "sqlalchemy[asyncio]>=2.0.36",
     "structlog>=24.0.0",
     "uvicorn[standard]>=0.32.0",
@@ -53,6 +56,10 @@ select = [
     "ASYNC", # flake8-async
     "RUF",   # ruff 专属规则
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI 惯用法:依赖注入以 Depends() 作为参数默认值
+"src/tradewinds/api/**" = ["B008"]
 
 [tool.mypy]
 python_version = "3.13"
