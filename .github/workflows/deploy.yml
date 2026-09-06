@@ -1,10 +1,9 @@
-# 部署流水线:main 推送 → 构建镜像推 GHCR → SSH 到 VPS 拉取并滚动重启 → 跑迁移
-# 需要的仓库 Secrets:DEPLOY_HOST、DEPLOY_USER、DEPLOY_SSH_KEY(GITHUB_TOKEN 自动提供)
+# 部署流水线:构建镜像推 GHCR → SSH 到 VPS 拉取并滚动重启 → 跑迁移
+# 手动触发:上线前先不随 push 运行;需要仓库 Secrets:DEPLOY_HOST、DEPLOY_USER、DEPLOY_SSH_KEY
 name: Deploy
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
