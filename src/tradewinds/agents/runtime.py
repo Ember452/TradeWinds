@@ -25,6 +25,7 @@ from tradewinds.tools.base import RateLimiter, SourceClient
 from tradewinds.tools.fetcher import Fetcher
 from tradewinds.tools.github import GithubClient
 from tradewinds.tools.hackernews import HackerNewsClient
+from tradewinds.tools.websearch import WebSearchClient
 
 
 @dataclass
@@ -59,6 +60,7 @@ def build_pipeline_components(
         ArxivClient(limiter, http_client),
         HackerNewsClient(limiter, http_client),
         GithubClient(limiter, http_client, token=settings.github_token),
+        WebSearchClient(limiter, http_client),
     ]
     return PipelineComponents(
         planner=Planner(runner),
