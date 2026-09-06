@@ -9,7 +9,8 @@ import { SharedReportPage } from "@/features/reports/SharedReportPage";
 import { LandingPage } from "@/features/landing/LandingPage";
 import { TopicsPage } from "@/features/topics/TopicsPage";
 import { TopicDetailPage } from "@/features/topics/TopicDetailPage";
-import { ChatListPage, ChatPage } from "@/features/chat/ChatPage";
+import { ChatListPage } from "@/features/chat/ChatListPage";
+import { ChatPage } from "@/features/chat/ChatPage";
 
 export default function App() {
   return (
