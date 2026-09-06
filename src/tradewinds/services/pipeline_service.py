@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tradewinds.agents.analyst import Analyst
 from tradewinds.agents.editor import Editor
+from tradewinds.agents.orchestrator.embeddings import Embedder
 from tradewinds.agents.retriever import Retriever
 from tradewinds.agents.schemas.retrieval_plan import RetrievalPlan
 from tradewinds.core.exceptions import TradeWindsError
@@ -22,6 +23,7 @@ from tradewinds.services.item_service import (
     recent_accepted_scores,
 )
 from tradewinds.services.push_service import PushService, effective_immediate_threshold
+from tradewinds.services.rag_service import upsert_item_embedding
 from tradewinds.services.report_service import ReportService
 from tradewinds.services.topic_service import schedule_after
 from tradewinds.tools.base import CandidateItem, SourceClient, SourceDegraded
@@ -53,6 +55,7 @@ class PipelineService:
         feed_service: FeedService | None = None,
         feed_client_factory: Callable[[Any], SourceClient] | None = None,
         preference_builder: Callable[[int, int], Awaitable[list[str]]] | None = None,
+        embedder: Embedder | None = None,
     ) -> None:
         self._session = session
         self._retriever = retriever
@@ -65,6 +68,7 @@ class PipelineService:
         self._report_service = report_service
         self._feed_service = feed_service
         self._feed_client_factory = feed_client_factory
+        self._embedder = embedder
         self._preference_builder = preference_builder
 
     async def run_topic(self, topic: Topic) -> PipelineResult:
@@ -113,6 +117,12 @@ class PipelineService:
         topic.last_run_at = now
         topic.next_run_at = schedule_after(topic, now=now)
         await self._session.commit()
+
+        if self._embedder is not None:
+            for item in accepted_items:
+                parts = [item.title, item.summary or "", item.raw_content[:2000]]
+                embedding_text = "\n".join(parts)
+                await upsert_item_embedding(self._session, item.id, self._embedder, embedding_text)
 
         if self._push_service is not None and accepted_items:
             await self._push_service.prepare_digest(topic, accepted_items)

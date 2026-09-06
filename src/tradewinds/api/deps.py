@@ -81,6 +81,7 @@ def get_pipeline_service(
         preference_builder=lambda user_id, topic_id: build_profile(
             session, user_id, exclude_topic_id=topic_id
         ),
+        embedder=request.app.state.embedder,
     )
 
 

@@ -63,6 +63,7 @@ async def _run_topic(topic_id: int) -> dict[str, object]:
                     preference_builder=lambda user_id, topic_id: build_profile(
                         session, user_id, exclude_topic_id=topic_id
                     ),
+                    embedder=components.embedder,
                 )
                 result = await pipeline.run_topic(topic)
             finally:

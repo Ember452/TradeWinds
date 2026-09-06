@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from tradewinds.agents.chat_tools import build_chat_registry
+from tradewinds.agents.orchestrator.embeddings import OpenAICompatibleEmbedder
 from tradewinds.agents.orchestrator.llm import ModelTier
 from tradewinds.agents.orchestrator.loop import ToolLoop
 from tradewinds.agents.runtime import build_pipeline_components
@@ -47,6 +48,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.retriever = components.retriever
     app.state.http_client = components.http_client
     app.state.rate_limiter = components.rate_limiter
+    app.state.embedder = (
+        OpenAICompatibleEmbedder(
+            base_url=settings.llm_api_base,
+            api_key=settings.llm_api_key,
+            model=settings.embedding_model,
+        )
+        if settings.embedding_model
+        else None
+    )
 
     email_channel = EmailChannel(
         EmailChannelConfig(

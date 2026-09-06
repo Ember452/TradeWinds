@@ -9,6 +9,7 @@ import httpx
 
 from tradewinds.agents.analyst import Analyst
 from tradewinds.agents.editor import Editor
+from tradewinds.agents.orchestrator.embeddings import Embedder, OpenAICompatibleEmbedder
 from tradewinds.agents.orchestrator.llm import (
     LLMProvider,
     ModelTier,
@@ -37,6 +38,7 @@ class PipelineComponents:
     fetcher: Fetcher
     rate_limiter: RateLimiter
     http_client: httpx.AsyncClient
+    embedder: Embedder | None
 
 
 def build_pipeline_components(
@@ -68,4 +70,13 @@ def build_pipeline_components(
         fetcher=Fetcher(limiter, http_client),
         rate_limiter=limiter,
         http_client=http_client,
+        embedder=(
+            OpenAICompatibleEmbedder(
+                base_url=settings.llm_api_base,
+                api_key=settings.llm_api_key,
+                model=settings.embedding_model,
+            )
+            if settings.embedding_model
+            else None
+        ),
     )
