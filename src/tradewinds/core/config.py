@@ -53,6 +53,12 @@ class Settings(BaseSettings):
         default=24, description="同一聚类的即时推送抑制窗口(小时)"
     )
 
+    # --- RAG 已读检索 ---
+    embedding_model: str | None = Field(
+        default=None,
+        description="嵌入模型(OpenAI-compatible /embeddings);未配置则已读检索功能关闭",
+    )
+
     # --- 对话 Agent ---
     chat_concurrency_limit: int = Field(default=3, description="每用户并发对话数上限")
 
