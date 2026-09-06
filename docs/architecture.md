@@ -145,7 +145,12 @@ class StructuredRunner:
 class SourceClient(Protocol):
     name: str
     async def search(self, plan: RetrievalPlan, *,
-                     seen_hashes: set[str]) -> list[CandidateItem]: ...
+                     topic_id: int, seen_hashes: set[str]) -> list[CandidateItem]: ...
+
+# agents/retriever.py —— 并发检索，单源故障降级不上抛
+class Retriever:
+    async def collect(self, plan: RetrievalPlan, *,
+                      topic_id: int, seen_hashes: set[str]) -> CollectResult: ...
 
 # push/base.py —— 推送渠道抽象（邮件先实现，站内通知后接）
 class PushChannel(Protocol):
