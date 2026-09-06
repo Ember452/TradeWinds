@@ -64,6 +64,8 @@ def get_pipeline_service(
         request.app.state.analyst,
         request.app.state.editor,
         score_threshold=settings.pipeline_score_threshold,
+        immediate_threshold=settings.push_immediate_threshold,
+        suppress_hours=settings.push_cluster_suppress_hours,
         push_service=push_service,
         report_service=ReportService(session),
     )

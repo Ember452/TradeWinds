@@ -39,6 +39,8 @@ class PipelineService:
         editor: Editor,
         *,
         score_threshold: float,
+        immediate_threshold: float = 8.0,
+        suppress_hours: int = 24,
         push_service: PushService | None = None,
         report_service: ReportService | None = None,
     ) -> None:
@@ -47,6 +49,8 @@ class PipelineService:
         self._analyst = analyst
         self._editor = editor
         self._score_threshold = score_threshold
+        self._immediate_threshold = immediate_threshold
+        self._suppress_hours = suppress_hours
         self._push_service = push_service
         self._report_service = report_service
 
@@ -88,6 +92,13 @@ class PipelineService:
 
         if self._push_service is not None and accepted_items:
             await self._push_service.prepare_digest(topic, accepted_items)
+            high_score = [
+                item for item in accepted_items if (item.score or 0) >= self._immediate_threshold
+            ]
+            if high_score:
+                await self._push_service.prepare_immediate(
+                    topic, high_score, suppress_hours=self._suppress_hours
+                )
         if self._report_service is not None:
             await self._report_service.upsert_period_report(topic, now=now)
 

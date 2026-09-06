@@ -48,6 +48,8 @@ async def _run_topic(topic_id: int) -> dict[str, object]:
                     components.analyst,
                     components.editor,
                     score_threshold=settings.pipeline_score_threshold,
+                    immediate_threshold=settings.push_immediate_threshold,
+                    suppress_hours=settings.push_cluster_suppress_hours,
                     report_service=ReportService(session),
                 )
                 result = await pipeline.run_topic(topic)

@@ -18,6 +18,11 @@ class PushStatus(enum.StrEnum):
     skipped = "skipped"
 
 
+class PushType(enum.StrEnum):
+    digest = "digest"
+    immediate = "immediate"
+
+
 class PushLog(Base):
     __tablename__ = "push_log"
     __table_args__ = (
@@ -37,6 +42,15 @@ class PushLog(Base):
     status: Mapped[PushStatus] = mapped_column(
         Enum(PushStatus, native_enum=False, length=16), nullable=False, default=PushStatus.pending
     )
+    # digest=周期汇总;immediate=单条高分即时推送
+    push_type: Mapped[PushType] = mapped_column(
+        Enum(PushType, native_enum=False, length=16),
+        nullable=False,
+        default=PushType.digest,
+        server_default="digest",
+    )
+    # 即时推送的聚类键:24h 抑制窗口的查询依据(digest 为空)
+    cluster_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

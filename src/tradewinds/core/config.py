@@ -45,6 +45,14 @@ class Settings(BaseSettings):
         default=6.0, description="进 Editor 的评分下限,低于此值条目置 rejected(暂定值)"
     )
 
+    # --- 即时推送 ---
+    push_immediate_threshold: float = Field(
+        default=8.0, description="单条评分达到该值即触发即时邮件推送"
+    )
+    push_cluster_suppress_hours: int = Field(
+        default=24, description="同一聚类的即时推送抑制窗口(小时)"
+    )
+
     # --- 对话 Agent ---
     chat_concurrency_limit: int = Field(default=3, description="每用户并发对话数上限")
 

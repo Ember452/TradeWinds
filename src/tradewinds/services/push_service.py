@@ -2,18 +2,18 @@
 
 import hashlib
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tradewinds.models.item import Item
-from tradewinds.models.push_log import PushLog, PushStatus
+from tradewinds.models.push_log import PushLog, PushStatus, PushType
 from tradewinds.models.topic import Topic
 from tradewinds.models.user import User
 from tradewinds.push.base import PushChannel
-from tradewinds.push.templates import render_digest_email
+from tradewinds.push.templates import render_digest_email, render_item_alert_email
 
 logger = structlog.get_logger(__name__)
 
@@ -73,6 +73,67 @@ class PushService:
         logger.info("push_prepared", push_log_id=log.id, topic_id=topic.id, items=len(items))
         return log
 
+    async def prepare_immediate(
+        self, topic: Topic, items: list[Item], *, suppress_hours: int, now: datetime | None = None
+    ) -> list[PushLog]:
+        """即时推送:逐条建 PushLog 并入队;同聚类 24h 内已推送则抑制,单条重复也不重推。"""
+        now = now or datetime.now(UTC)
+        user = await self._session.get(User, topic.user_id)
+        if user is None:
+            return []
+
+        created: list[PushLog] = []
+        for item in items:
+            if item.cluster_key is not None and await self._cluster_suppressed(
+                topic.id, item.cluster_key, suppress_hours=suppress_hours, now=now
+            ):
+                continue
+            digest_key = f"item:{item.id}"
+            existing = await self._session.scalar(
+                select(PushLog).where(
+                    PushLog.topic_id == topic.id, PushLog.digest_key == digest_key
+                )
+            )
+            if existing is not None:
+                continue
+
+            log = PushLog(
+                topic_id=topic.id,
+                user_id=topic.user_id,
+                channel=self._channel.name,
+                digest_key=digest_key,
+                item_ids=[item.id],
+                recipient=user.email,
+                status=PushStatus.pending,
+                push_type=PushType.immediate,
+                cluster_key=item.cluster_key,
+            )
+            self._session.add(log)
+            await self._session.commit()
+            await self._session.refresh(log)
+            if self._dispatch is not None:
+                self._dispatch(log.id)
+            created.append(log)
+            logger.info(
+                "immediate_push_prepared", push_log_id=log.id, topic_id=topic.id, item_id=item.id
+            )
+        return created
+
+    async def _cluster_suppressed(
+        self, topic_id: int, cluster_key: str, *, suppress_hours: int, now: datetime
+    ) -> bool:
+        """同聚类在抑制窗口内已有待发/已发的即时推送 → 抑制。"""
+        window_start = now - timedelta(hours=suppress_hours)
+        recent = await self._session.scalar(
+            select(PushLog.id)
+            .where(PushLog.topic_id == topic_id)
+            .where(PushLog.push_type == PushType.immediate)
+            .where(PushLog.cluster_key == cluster_key)
+            .where(PushLog.status.in_([PushStatus.pending, PushStatus.sent]))
+            .where(PushLog.created_at >= window_start)
+        )
+        return recent is not None
+
     async def deliver(self, push_log_id: int) -> PushStatus:
         """投递单条推送并回写状态;渠道失败不抛异常,记入 push_log 可查询。"""
         log = await self._session.get(PushLog, push_log_id)
@@ -91,9 +152,14 @@ class PushService:
             await self._session.commit()
             return PushStatus.failed
 
-        payload = render_digest_email(
-            topic=topic, items=items, to=log.recipient, app_base_url=self._app_base_url
-        )
+        if log.push_type is PushType.immediate and len(items) == 1:
+            payload = render_item_alert_email(
+                topic=topic, item=items[0], to=log.recipient, app_base_url=self._app_base_url
+            )
+        else:
+            payload = render_digest_email(
+                topic=topic, items=items, to=log.recipient, app_base_url=self._app_base_url
+            )
         receipt = await self._channel.send(payload)
 
         if receipt.ok:

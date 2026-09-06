@@ -282,3 +282,10 @@
 - 阶段 0 必做件:Sentry 可选接入(api/worker/beat/前端,DSN 未配置零开销)、`GET /ops/summary` 指标出口(X-Ops-Token)、备份/恢复脚本与 runbook(告警阈值见 docs/runbook.md);备份异地归档与恢复演练需部署后执行。
 - 周期报告迭代(扩展计划 §3 第一项):Report 模型(0006 迁移,主题×周期唯一)、ReportService 幂等 upsert(条目按 created_at 落周期桶,每次 run 重算当期)、管道 run 后自动聚合、报告列表/详情/分享 API 与公开分享页(前端 /share/reports/:token)。
 - 周期报告的邮件推送(设计文档"频率到期时聚合并邮件推送")暂未接线:推送通道与退订已就绪,待 SMTP 配置上线后接入 send_push 任务(与汇总邮件共用 push 队列与 push_log)。
+
+**主动推送完善第一刀(2026-09-06,扩展计划 §3 + design.md §7)**
+
+- 即时推送落地:accepted 条目评分 >= `TRADEWINDS_PUSH_IMMEDIATE_THRESHOLD`(默认 8)→ 单条即时邮件,push_log 记 push_type=immediate;design.md §7 暂定阈值已回写为配置项并去掉"暂定"。
+- 抑制规则:同聚类(cluster_key)24h 内(窗口可配)已有待发/已发即时推送 → 跳过;单条以 digest_key=`item:<id>` 去重,重跑不重推。
+- 投递复用既有链路:入 push 队列、send_push 重试语义、SMTP 未配置记 skipped 均不变。
+- 扩展计划 §3 其余项(跨会话记忆/自定义 RSS/RAG 已读内容/阈值动态化)依赖数据积累或向量库,按价值顺序后续迭代。

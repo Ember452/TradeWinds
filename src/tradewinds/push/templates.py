@@ -39,3 +39,33 @@ def render_digest_email(
     text = "\n".join(lines_text)
 
     return PushPayload(to=to, subject=subject, html=html, text=text)
+
+
+def render_item_alert_email(*, topic: Topic, item: Item, to: str, app_base_url: str) -> PushPayload:
+    """即时提醒邮件:单条高分条目,含退订链接与来源标注。"""
+    unsubscribe_url = f"{app_base_url}/api/v1/topics/{topic.id}/mute"
+    subject = f"TradeWinds 即时提醒:{item.title}"
+
+    html = (
+        "<html><body>"
+        f"<p>您订阅的主题「{escape(topic.name)}」出现高相关性内容:</p>"
+        f'<p><a href="{escape(item.url)}">{escape(item.title)}</a>'
+        f"<small> 来源:{escape(item.source)}"
+        f" · 评分:{item.score if item.score is not None else '-'}</small></p>"
+        + (f"<p>{escape(item.summary or '')}</p>" if item.summary else "")
+        + (f"<p><em>推荐理由:{escape(item.reason or '')}</em></p>" if item.reason else "")
+        + f'<p><a href="{escape(unsubscribe_url)}">退订此主题</a></p>'
+        "</body></html>"
+    )
+    text = "\n".join(
+        [
+            f"您订阅的主题「{topic.name}」出现高相关性内容:",
+            f"{item.title}(来源:{item.source})",
+            item.url,
+            item.summary or "",
+            item.reason or "",
+            "",
+            f"退订此主题:{unsubscribe_url}",
+        ]
+    )
+    return PushPayload(to=to, subject=subject, html=html, text=text)
