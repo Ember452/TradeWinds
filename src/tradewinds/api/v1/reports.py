@@ -47,9 +47,17 @@ def _service(session: AsyncSession = Depends(get_db)) -> ReportService:
 
 
 def _to_read(report: Report) -> ReportRead:
-    data = ReportRead.model_validate(report)
-    data.item_count = len(report.item_ids or [])
-    return data
+    # item_count 是计算字段(ORM 上不存在),显式构造而不是 from_attributes 直灌
+    return ReportRead(
+        id=report.id,
+        topic_id=report.topic_id,
+        period_type=report.period_type,
+        period_start=report.period_start,
+        period_end=report.period_end,
+        item_count=len(report.item_ids or []),
+        share_token=report.share_token,
+        content=report.content,
+    )
 
 
 @router.get("/topics/{topic_id}/reports", response_model=list[ReportRead])

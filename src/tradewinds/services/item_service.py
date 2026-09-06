@@ -111,5 +111,6 @@ async def list_items(
         query = query.where(Item.score >= min_score)
 
     rows = list((await session.scalars(query)).all())
-    next_cursor = rows[limit].id if len(rows) > limit else None
+    # 游标 = 本页最后一条的 id:取 rows[limit](下一页首条)会让翻页丢一条
+    next_cursor = rows[limit - 1].id if len(rows) > limit else None
     return rows[:limit], next_cursor
