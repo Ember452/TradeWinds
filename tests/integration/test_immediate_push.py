@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from tradewinds.agents.analyst import Analyst
 from tradewinds.agents.editor import Editor
+from tradewinds.agents.push_judge import ItemPushDecision
 from tradewinds.agents.retriever import Retriever
 from tradewinds.agents.schemas.item_digest import ItemDigest
 from tradewinds.agents.schemas.scored_item import AnalystOutput, ItemScore
@@ -76,6 +77,33 @@ class FakeRunner:
         raise AssertionError(response_model)  # pragma: no cover
 
 
+class FakePushJudge:
+    """全推判定:行为与无 Judge 一致。"""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def decide(
+        self, topic: Any, items: list[Any], *, preferences: list[str]
+    ) -> dict[str, ItemPushDecision]:
+        self.calls += 1
+        return {i.url: ItemPushDecision(url=i.url, push=True, reason="判定通过") for i in items}
+
+
+class SkippingPushJudge:
+    """首条(url 以 -0 结尾)判 skip,其余照推。"""
+
+    async def decide(
+        self, topic: Any, items: list[Any], *, preferences: list[str]
+    ) -> dict[str, ItemPushDecision]:
+        return {
+            i.url: ItemPushDecision(url=i.url, push=not i.url.endswith("-0"), reason="契合度不足")
+            if i.url.endswith("-0")
+            else ItemPushDecision(url=i.url, push=True, reason="判定通过")
+            for i in items
+        }
+
+
 @pytest.fixture
 def client():
     if "TRADEWINDS_DATABASE_URL" not in os.environ:
@@ -87,6 +115,7 @@ def client():
         app.state.retriever = Retriever([FakeSourceClient()])
         app.state.analyst = Analyst(runner=FakeRunner())  # type: ignore[arg-type]
         app.state.editor = Editor(runner=FakeRunner())  # type: ignore[arg-type]
+        app.state.push_judge = FakePushJudge()
         yield test_client
     celery_app.conf.task_always_eager = False
 
@@ -214,3 +243,51 @@ def test_adaptive_threshold_suppresses_on_high_history(client: TestClient) -> No
     immediates = _aio.run(_immediates())
     # FakeRunner 给 8.5 分,低于自适应阈值 9.0 → 即时推送被抑制
     assert immediates == []
+
+
+def test_push_judge_skip_leaves_audited_log(client: TestClient) -> None:
+    """Judge 判 skip 的条目:建 skipped 记录留痕、不入队;照推的记录判定理由。"""
+    import asyncio
+
+    client.app.state.push_judge = SkippingPushJudge()
+    headers = _auth_headers(client)
+    topic_id = client.post(
+        "/api/v1/topics",
+        headers=headers,
+        json={"name": "Judge 守门主题", "description": "d", "cadence": "daily"},
+    ).json()["topic"]["id"]
+
+    run = client.post(f"/api/v1/topics/{topic_id}/run", headers=headers)
+    assert run.status_code == 200, run.text
+
+    async def _immediate_logs() -> list[dict[str, Any]]:
+        from sqlalchemy import text
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        engine = create_async_engine(os.environ["TRADEWINDS_DATABASE_URL"])
+        try:
+            async with engine.connect() as conn:
+                rows = await conn.execute(
+                    text(
+                        "SELECT pl.status, pl.judge_reason, pl.error, i.url AS url"
+                        " FROM push_log pl JOIN items i ON i.id = (pl.item_ids->>0)::int"
+                        " WHERE pl.topic_id = :t AND pl.push_type = 'immediate'"
+                    ),
+                    {"t": topic_id},
+                )
+                return [dict(r._mapping) for r in rows]
+        finally:
+            await engine.dispose()
+
+    logs = {row["url"]: row for row in asyncio.run(_immediate_logs())}
+
+    # 判 skip:url=-0 建 skipped 记录 + 理由,不投递(error 为空)
+    skipped = logs[f"https://example.com/{MARKER}-0"]
+    assert skipped["status"] == "skipped"
+    assert skipped["judge_reason"] == "契合度不足"
+    assert skipped["error"] is None
+    # 照推:url=-1 进投递(渠道未配置 → skipped),判定理由留痕
+    pushed = logs[f"https://example.com/{MARKER}-1"]
+    assert pushed["status"] == "skipped"
+    assert pushed["judge_reason"] == "判定通过"
+    assert pushed["error"] == "email_disabled"

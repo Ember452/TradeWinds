@@ -96,6 +96,18 @@ def client():
         app.state.retriever = Retriever([FakeSourceClient()])
         app.state.analyst = Analyst(runner=FakeRunner())  # type: ignore[arg-type]
         app.state.editor = Editor(runner=FakeRunner())  # type: ignore[arg-type]
+
+        class FakePushJudge:
+            async def decide(
+                self, topic: Any, items: list[Any], *, preferences: list[str]
+            ) -> dict[str, Any]:
+                from tradewinds.agents.push_judge import ItemPushDecision
+
+                return {
+                    i.url: ItemPushDecision(url=i.url, push=True, reason="判定通过") for i in items
+                }
+
+        app.state.push_judge = FakePushJudge()
         yield test_client
 
 
