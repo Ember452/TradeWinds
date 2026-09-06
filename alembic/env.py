@@ -1,6 +1,7 @@
-"""Alembic 异步环境:元数据来自 tradewinds.models,连接串来自应用配置。"""
+"""Alembic 异步环境:元数据来自 tradewinds.models,连接串来自环境或应用配置。"""
 
 import asyncio
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -16,7 +17,14 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+
+def _database_url() -> str:
+    """迁移只需要数据库 URL:优先直读环境变量,缺失时才走完整应用配置校验。"""
+    url = os.environ.get("TRADEWINDS_DATABASE_URL")
+    return url if url else get_settings().database_url
+
+
+config.set_main_option("sqlalchemy.url", _database_url())
 
 target_metadata = Base.metadata
 
