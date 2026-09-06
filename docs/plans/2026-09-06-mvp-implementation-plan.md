@@ -236,3 +236,22 @@
 | 5 | M5 前端上线 | 三界面+验收清单全绿 | 1-1.5 周 |
 
 **执行方式**：按 Phase 顺序执行；Phase 内 Task 有依赖的按编号顺序（如 2.3 依赖 2.2），无依赖的（如 2.5 与 2.6）可并行。每 Phase 结束做一次"部署验收 + study 文档回顾"再进下一 Phase。
+
+---
+
+## 实施记录(与原计划的偏差修正)
+
+> 依据 AGENTS.md 第 9 节:每 Phase 结束核对计划与实际交付,不一致处以本节记录。
+
+**Phase 1(2026-09-06 完成,commit c0f0cb0…11b4371)**
+
+- Task 1.6/1.7 的部署验收(真实域名 HTTPS、README 在线地址)因基础设施未就绪暂缓:部署流水线已改为手动触发(`workflow_dispatch`),上线前恢复 push 触发即可。
+- Task 1.1 追加 `.dockerignore` 与 `.gitignore` 的 `.env.example` 例外(工具链完整性)。
+
+**Phase 2(2026-09-06 完成,commit 4c59b10…4fa9027)**
+
+- Task 2.5 通用抓取采用标准库 HTMLParser 提取正文,不引入 trafilatura 等重依赖(依赖纪律);提取精度由 Analyst 截断与评分兜底。
+- Task 2.7 `POST /topics/{id}/run` 的"受配额限制"细化为:创建侧配额(quota_topics_max)已在本期落地;运行级配额依赖用量记录,随 Task 3.4 配额服务落地。
+- 接口签名微调(已同步 architecture.md 第 5 节):`SourceClient.search`/`Retriever.collect` 增加 `topic_id` 参数(指纹计算需要);`Retriever.collect` 返回 `CollectResult(items, degraded)` 以携带单源降级清单;`StructuredRunner.run`/`ToolLoop.__init__` 增加 model 档位与上下文截断参数。
+- 新增配置(已同步 .env.example):`TRADEWINDS_PIPELINE_SCORE_THRESHOLD`(暂定 6 分,Editor 准入下限)、`TRADEWINDS_GITHUB_TOKEN`(可选)、`TRADEWINDS_LOOP_*` 三项工具循环护栏。
+- 集成测试访问数据库断言时使用独立 engine(asyncpg 连接绑定事件循环),不复用应用 lifespan 的 engine。
