@@ -1,4 +1,4 @@
-.PHONY: lint fmt type test test-all dev migrate up down worker beat
+.PHONY: lint fmt type test test-all dev migrate up down worker beat frontend
 
 lint:
 	uv run ruff check .
@@ -34,3 +34,6 @@ worker:
 
 beat:
 	uv run python -m tradewinds.tasks.beat
+
+frontend:
+	cd frontend && npm run dev

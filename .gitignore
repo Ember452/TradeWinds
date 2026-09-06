@@ -21,3 +21,7 @@ build/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# 前端
+node_modules/
+frontend/dist/
