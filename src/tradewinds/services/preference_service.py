@@ -9,7 +9,7 @@
 """
 
 import structlog
-from sqlalchemy import distinct, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tradewinds.models.engagement import ItemClick
@@ -36,13 +36,16 @@ async def build_profile(session: AsyncSession, user_id: int, *, exclude_topic_id
     preferences: list[str] = []
     seen: set[str] = set()
 
+    # 按聚类分组取组内最新条目 id 排序:PG 要求 DISTINCT 的 ORDER BY 列必须在
+    # SELECT 列表内,故用 GROUP BY + MAX 语义等价地表达"去重 + 最近优先"
     clicked_clusters = await session.scalars(
-        select(distinct(Item.cluster_key))
+        select(Item.cluster_key, func.max(Item.id).label("last_item_id"))
         .join(ItemClick, ItemClick.item_id == Item.id)
         .where(ItemClick.user_id == user_id)
         .where(Item.cluster_key.is_not(None))
         .where(Item.topic_id != exclude_topic_id)
-        .order_by(Item.id.desc())
+        .group_by(Item.cluster_key)
+        .order_by(func.max(Item.id).desc())
         .limit(_PREFERENCE_LIMIT)
     )
     for cluster in clicked_clusters:
