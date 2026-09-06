@@ -193,7 +193,7 @@ slogan：把风声，吹给你。
 | Agent 编排 | 自研轻量编排层（见 4.1）+ OpenAI-compatible SDK | 核心能力自持，依赖最小化 |
 | LLM | DeepSeek 为主，双档位（打分/检索用低价位，摘要/对话用中档），Provider 抽象可切换 | 成本可控；协议统一，替换供应商只改配置 |
 | Web 搜索 | Tavily 或 Brave Search API | 对话研究需要通用检索；实现期实测免费额度后定 |
-| 前端 | React SPA（Vite + TypeScript），SSE 消费流式响应 | 多用户运营产品，交互体验优先 |
+| 前端 | React SPA（Vite + TypeScript）+ Tailwind CSS v4 + shadcn/ui + framer-motion，晴空/星夜双主题；未登录访问 / 为动漫风宣传页（纸飞机动效），SSE 消费流式响应 | 多用户运营产品，交互体验优先；演示定位要求视觉与交互达到产品级 |
 | 邮件 | SMTP 抽象 + Mailpit（演示环境本地收件箱，Web UI 查看推送效果） | 演示零配置可见推送结果；渠道协议抽象下未来可无缝切换 Resend 等真实发信服务 |
 | 部署 | Docker Compose（api / worker / beat / postgres / redis / caddy），`docker compose up` 本地一键全栈 | 容器边界清晰，本地演示即生产形态的等比缩小；公网上线不在当前定位 |
 | CI/CD | GitHub Actions：lint + type + test（含集成测试）+ 前端构建；部署流水线保留为手动触发 | 质量门禁每次推送必跑；部署不作为交付路径 |

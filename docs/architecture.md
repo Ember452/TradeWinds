@@ -95,8 +95,10 @@ TradeWinds/
 │   ├── push/           # 推送渠道：协议 + 邮件实现 + 模板
 │   └── core/           # 配置、日志、安全、异常、DB/Redis 工厂；无业务语义
 ├── frontend/src/
-│   ├── features/       # auth / topics / feed / chat，按业务特性组织，跨特性不互相 import
-│   └── shared/         # api client、通用组件、类型
+│   ├── features/       # landing / auth / topics / chat / reports,按业务特性组织,跨特性不互相 import
+│   ├── components/ui/  # shadcn/ui 生成的基础组件源码(可定制,非黑盒)
+│   ├── lib/            # cn 等工具
+│   └── shared/         # api client、认证状态、主题(晴空/星夜双主题)、通用组件
 └── tests/              # unit / contract（录制固件）/ agents（金标集）/ integration，镜像 src 结构
 ```
 
