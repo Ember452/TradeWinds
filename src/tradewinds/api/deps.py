@@ -1,4 +1,4 @@
-"""API 依赖注入:数据库会话、配置、当前用户、认证服务。"""
+"""API 依赖注入:数据库会话、配置、当前用户、各服务实例。"""
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 
@@ -11,9 +11,51 @@ from tradewinds.core.exceptions import AuthError, TradeWindsError
 from tradewinds.core.security import decode_access_token
 from tradewinds.models.user import User
 from tradewinds.services.auth_service import AuthService
+from tradewinds.services.pipeline_service import PipelineService
 from tradewinds.services.rate_limit_service import RateLimitService
+from tradewinds.services.topic_service import TopicService
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
+    """请求级数据库会话:lifespan 建好的工厂放在 app.state。"""
+    factory = request.app.state.session_factory
+    async with factory() as session:
+        yield session
+
+
+def get_auth_service(
+    session: AsyncSession = Depends(get_db), settings: Settings = Depends(get_settings)
+) -> AuthService:
+    """每个请求新建服务实例,复用请求级会话。"""
+    return AuthService(
+        session, jwt_secret=settings.jwt_secret, jwt_expire_minutes=settings.jwt_expire_minutes
+    )
+
+
+def get_topic_service(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> TopicService:
+    return TopicService(
+        session, request.app.state.planner, quota_topics_max=settings.quota_topics_max
+    )
+
+
+def get_pipeline_service(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> PipelineService:
+    return PipelineService(
+        session,
+        request.app.state.retriever,
+        request.app.state.analyst,
+        request.app.state.editor,
+        score_threshold=settings.pipeline_score_threshold,
+    )
 
 
 def get_rate_limit_service(request: Request) -> RateLimitService:
@@ -38,22 +80,6 @@ def ip_rate_limit(scope: str) -> Callable[..., Awaitable[None]]:
             raise TradeWindsError("请求过于频繁,请稍后再试", code="rate_limited", status_code=429)
 
     return dependency
-
-
-async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
-    """请求级数据库会话:lifespan 建好的工厂放在 app.state。"""
-    factory = request.app.state.session_factory
-    async with factory() as session:
-        yield session
-
-
-def get_auth_service(
-    session: AsyncSession = Depends(get_db), settings: Settings = Depends(get_settings)
-) -> AuthService:
-    """每个请求新建服务实例,复用请求级会话。"""
-    return AuthService(
-        session, jwt_secret=settings.jwt_secret, jwt_expire_minutes=settings.jwt_expire_minutes
-    )
 
 
 async def get_current_user(
