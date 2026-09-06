@@ -1,8 +1,18 @@
-// 宣传页(Task 4 重写本占位):未登录访问 / 时的门面
+import { Hero } from "./components/Hero";
+import { PipelineSection } from "./components/PipelineSection";
+import { FeatureGrid } from "./components/FeatureGrid";
+import { ReportShowcase } from "./components/ReportShowcase";
+import { SiteFooter } from "./components/SiteFooter";
+
+// 宣传页:未登录访问 / 的单页滚动叙事
 export function LandingPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <h1 className="text-3xl font-extrabold text-foreground">TradeWinds · 建设中</h1>
+    <div>
+      <Hero />
+      <PipelineSection />
+      <FeatureGrid />
+      <ReportShowcase />
+      <SiteFooter />
     </div>
   );
 }
