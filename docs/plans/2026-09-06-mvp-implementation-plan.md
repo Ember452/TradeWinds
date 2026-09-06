@@ -302,3 +302,10 @@
 - 偏好画像:build_profile 聚合"点击条目的聚类键(强信号)+ 其他主题关键词(弱信号)",去重限量 12 条;注入 Analyst 评分 prompt 的"用户历史偏好"段落,并显式声明"仅作参考信号,判定仍以本主题标准为准"——记忆影响取舍,不劫持判定。
 - 管道与 Analyst 契约微调:Analyst.score 增 preferences 关键字参数;PipelineService 增 preference_builder 注入点;未注入时行为与旧版一致。
 - 阈值动态化(§3)待 push_log/点击数据积累后做自适应;RAG 已读检索待 pgvector 迭代。
+
+**扩展计划收尾(2026-09-06,commit f60f6e7…a37a7e7)**
+
+- 评测体系常态化:Analyst 8 例 + Editor 6 例金标集落地,三角色齐备;断言业务要点(分数区间/聚类一致/核心实体保留/反脑补),CI 必跑即 prompt 回归门禁;线上抽样人工标注非代码项,待运营数据。
+- 阈值动态化:effective_immediate_threshold 按主题近期评分中位数在全局阈值 ±1.0 内自适应,冷启动(<10 条)用全局值;高分主题抬门槛避免刷屏,低分主题浮出精华;集成测试验证高分历史抑制 8.5 分条目。
+- RAG 已读内容检索:pgvector 方案(扩展计划明确不引入独立向量库);0010 迁移启用 vector 扩展(向量列不锁维度,ANN 索引留待规模触发);管道 run 后对 accepted 条目生成嵌入(upsert,失败降级);GET /items/search 与对话工具 search_history 限定本人条目;总开关 TRADEWINDS_EMBEDDING_MODEL 默认关闭。compose/CI postgres 切换 pgvector/pgvector:pg16。
+- web_search 通用搜索工具维持暂缓(无免费稳定搜索 API)。
