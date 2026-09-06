@@ -262,3 +262,9 @@
 - Task 3.3 推送范围:仅汇总邮件(digest);阈值即时推送与聚类抑制按 design.md 第 10 节仍不在一期范围。SMTP 未配置时投递结果记 skipped(email_disabled),不视为失败。推送任务重试仅覆盖"意外异常",渠道明确失败直接落 push_log failed 可查询,指数退避重试 3 次语义保留在 send_push 任务。
 - Task 3.3 推送触发点在 PipelineService(可注入,手动 run 与调度 run 行为一致);入队分发回调由组合方注入,lifespan 负责 configure_broker,服务层不反向依赖任务模块。
 - Task 3.4 配额扣减的幂等由"用量在 LLM 调用成功后记录一次 + 管道指纹去重"共同保证,未引入独立扣减表;`GET /usage/daily` 即计划中"内部接口"的最小实现。
+
+**Phase 4(2026-09-06 完成,commit 710227e…14f3101)**
+
+- Task 4.2 工具集当前为 search_arxiv / search_hackernews / search_github / fetch_page;计划中的 web_search 通用网页搜索因无免费稳定的搜索 API 客户端(Task 2.5 未含 websearch 源)暂缓,补齐后只需在 build_chat_registry 增加一个适配器。
+- 流式实现为"循环完成后 citations→delta→done"的分帧输出(ToolLoop 走 complete 而非 stream),未做循环中途的 token 级流式;断连保护由此简化为"持久化先于流式输出 + shield 后台任务",验收语义(断连不丢引用与计量)已满足。真正 token 级流式需 ToolLoop 支持 provider.stream 的工具循环变体,记入 Phase 5 后优化项。
+- 每用户并发对话限流为单 api 容器进程内实现(UserConcurrencyLimiter);多副本部署需改 Redis 计数,随扩展计划处理。
