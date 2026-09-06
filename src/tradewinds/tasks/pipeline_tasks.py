@@ -11,6 +11,7 @@ from tradewinds.core.database import create_engine, create_session_factory
 from tradewinds.models.topic import Topic
 from tradewinds.services.feed_service import FeedService
 from tradewinds.services.pipeline_service import PipelineService
+from tradewinds.services.preference_service import build_profile
 from tradewinds.services.report_service import ReportService
 from tradewinds.services.usage_service import SessionUsageRecorder
 from tradewinds.tasks.celery_app import PIPELINE_TASK, celery_app
@@ -58,6 +59,9 @@ async def _run_topic(topic_id: int) -> dict[str, object]:
                     feed_service=FeedService(session, http_client=http_client),
                     feed_client_factory=lambda feed: RssClient(
                         limiter, http_client, feed_id=feed.id, url=feed.url
+                    ),
+                    preference_builder=lambda user_id, topic_id: build_profile(
+                        session, user_id, exclude_topic_id=topic_id
                     ),
                 )
                 result = await pipeline.run_topic(topic)

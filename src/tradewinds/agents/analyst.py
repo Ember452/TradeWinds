@@ -8,6 +8,7 @@ from tradewinds.agents.orchestrator.structured import StructuredRunner
 from tradewinds.agents.schemas.scored_item import AnalystOutput, ScoredItem
 from tradewinds.core.text import normalize_whitespace, truncate_text
 from tradewinds.models.topic import Topic
+from tradewinds.services.preference_service import build_scoring_prompt_section
 from tradewinds.tools.base import CandidateItem
 
 _SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompts" / "analyst.md"
@@ -22,12 +23,17 @@ class Analyst:
         self._runner = runner
         self._recorder = recorder
 
-    async def score(self, items: list[CandidateItem], topic: Topic) -> list[ScoredItem]:
-        """按主题相关性逐条评分;LLM 未覆盖的条目计 0 分进 unmatched 聚类。"""
+    async def score(
+        self, items: list[CandidateItem], topic: Topic, *, preferences: list[str] | None = None
+    ) -> list[ScoredItem]:
+        """按主题相关性逐条评分;LLM 未覆盖的条目计 0 分进 unmatched 聚类。
+
+        preferences 为跨会话偏好画像(点击历史/其他主题关键词),仅作参考信号。
+        """
         if not items:
             return []
 
-        prompt = self._build_prompt(items, topic)
+        prompt = self._build_prompt(items, topic, preferences or [])
         output = await self._runner.run(
             prompt, AnalystOutput, model=ModelTier.low, role="analyst", user_id=topic.user_id
         )
@@ -44,7 +50,9 @@ class Analyst:
                 )
         return scored
 
-    def _build_prompt(self, items: list[CandidateItem], topic: Topic) -> str:
+    def _build_prompt(
+        self, items: list[CandidateItem], topic: Topic, preferences: list[str]
+    ) -> str:
         criteria = _criteria_of(topic)
         lines = [
             self.SYSTEM_PROMPT,
@@ -54,6 +62,7 @@ class Analyst:
             "判定标准:",
         ]
         lines += [f"- {c}" for c in criteria]
+        lines.append(build_scoring_prompt_section(preferences))
         lines.append("")
         lines.append("候选条目:")
         for item in items:

@@ -1,6 +1,6 @@
 """管道编排:Retriever → Analyst → Editor → 落库,推进主题调度时间。"""
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -48,6 +48,7 @@ class PipelineService:
         report_service: ReportService | None = None,
         feed_service: FeedService | None = None,
         feed_client_factory: Callable[[Any], SourceClient] | None = None,
+        preference_builder: Callable[[int, int], Awaitable[list[str]]] | None = None,
     ) -> None:
         self._session = session
         self._retriever = retriever
@@ -60,6 +61,7 @@ class PipelineService:
         self._report_service = report_service
         self._feed_service = feed_service
         self._feed_client_factory = feed_client_factory
+        self._preference_builder = preference_builder
 
     async def run_topic(self, topic: Topic) -> PipelineResult:
         """手动/定时触发共用入口;重复 run 依赖指纹去重,不产生重复条目。"""
@@ -78,7 +80,10 @@ class PipelineService:
         accepted_items: list[Item] = []
         if new_items:
             candidates = [_to_candidate(item) for item in new_items]
-            scored = await self._analyst.score(candidates, topic)
+            preferences: list[str] = []
+            if self._preference_builder is not None:
+                preferences = await self._preference_builder(topic.user_id, topic.id)
+            scored = await self._analyst.score(candidates, topic, preferences=preferences)
             items_by_url = {item.url: item for item in new_items}
             for entry in scored:
                 db_item = items_by_url.get(entry.item.url)

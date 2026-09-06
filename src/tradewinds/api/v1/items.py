@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tradewinds.api.deps import get_current_user, get_db, get_topic_service
 from tradewinds.models.user import User
-from tradewinds.services.item_service import list_items
+from tradewinds.services.item_service import list_items, record_click
 from tradewinds.services.topic_service import TopicService
 
 router = APIRouter(tags=["feed"])
@@ -31,6 +31,16 @@ class ItemRead(BaseModel):
 class FeedPage(BaseModel):
     items: list[ItemRead]
     next_cursor: int | None = None
+
+
+@router.post("/items/{item_id}/click", status_code=204)
+async def click_item(
+    item_id: int,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    """点击上报(幂等):偏好画像的行为信号。"""
+    await record_click(session, current_user.id, item_id)
 
 
 @router.get("/topics/{topic_id}/items", response_model=FeedPage)

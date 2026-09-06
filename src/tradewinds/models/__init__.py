@@ -2,6 +2,7 @@
 
 from tradewinds.models.base import Base
 from tradewinds.models.conversation import Conversation, Message
+from tradewinds.models.engagement import ItemClick
 from tradewinds.models.feed_source import FeedSource
 from tradewinds.models.item import Item
 from tradewinds.models.llm_usage import LLMUsageRecord
@@ -15,6 +16,7 @@ __all__ = [
     "Conversation",
     "FeedSource",
     "Item",
+    "ItemClick",
     "LLMUsageRecord",
     "Message",
     "PushLog",

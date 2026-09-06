@@ -14,6 +14,7 @@ from tradewinds.services.auth_service import AuthService
 from tradewinds.services.chat_service import ChatService
 from tradewinds.services.feed_service import FeedService
 from tradewinds.services.pipeline_service import PipelineService
+from tradewinds.services.preference_service import build_profile
 from tradewinds.services.push_service import PushService
 from tradewinds.services.rate_limit_service import RateLimitService
 from tradewinds.services.report_service import ReportService
@@ -76,6 +77,9 @@ def get_pipeline_service(
             request.app.state.http_client,
             feed_id=feed.id,
             url=feed.url,
+        ),
+        preference_builder=lambda user_id, topic_id: build_profile(
+            session, user_id, exclude_topic_id=topic_id
         ),
     )
 

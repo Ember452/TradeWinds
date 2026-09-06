@@ -295,3 +295,10 @@
 - RssClient(RSS 2.0 / Atom 双格式,标准库解析)作为第四类 SourceClient;feed_sources 表(0008 迁移,主题+URL 唯一)挂在主题上,创建即健康校验(不可解析 → 422 invalid_feed),beat 每日复检更新 healthy/broken。
 - 管道检索:自定义源始终参与抓取(用户显式添加即意图,不经 Planner 源选择);Retriever.collect 增 extra_clients 参数,broken 源照常抓取并由单源降级机制标注。
 - 投递/评分/去重全部复用既有管道;tools/base 抽出 Limiter 协议解耦请求助手与限速器实现。
+
+**跨会话记忆第一刀(2026-09-06,扩展计划 §3 第一项)**
+
+- 行为信号:item_clicks 表(0009 迁移,用户×条目唯一)记录 Feed 点击;POST /items/{id}/click 幂等,归属隔离 404;前端 Feed 卡片点击 fire-and-forget 上报。
+- 偏好画像:build_profile 聚合"点击条目的聚类键(强信号)+ 其他主题关键词(弱信号)",去重限量 12 条;注入 Analyst 评分 prompt 的"用户历史偏好"段落,并显式声明"仅作参考信号,判定仍以本主题标准为准"——记忆影响取舍,不劫持判定。
+- 管道与 Analyst 契约微调:Analyst.score 增 preferences 关键字参数;PipelineService 增 preference_builder 注入点;未注入时行为与旧版一致。
+- 阈值动态化(§3)待 push_log/点击数据积累后做自适应;RAG 已读检索待 pgvector 迭代。

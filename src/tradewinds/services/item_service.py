@@ -3,8 +3,11 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tradewinds.core.exceptions import NotFoundError
 from tradewinds.core.text import truncate_text
+from tradewinds.models.engagement import ItemClick
 from tradewinds.models.item import Item, ItemStatus
+from tradewinds.models.topic import Topic
 from tradewinds.tools.base import CandidateItem, url_hash
 
 _TITLE_MAX = 500
@@ -43,6 +46,28 @@ async def create_pending_items(
         session.add_all(items)
         await session.flush()
     return items
+
+
+async def record_click(session: AsyncSession, user_id: int, item_id: int) -> bool:
+    """记录一次点击;重复点击幂等(返回是否新建)。
+
+    归属校验:条目所属主题不属于该用户 → 404(不泄露存在性)。
+    """
+    item = await session.get(Item, item_id)
+    if item is None:
+        raise NotFoundError("条目不存在")
+    topic = await session.get(Topic, item.topic_id)
+    if topic is None or topic.user_id != user_id:
+        raise NotFoundError("条目不存在")
+
+    existing = await session.scalar(
+        select(ItemClick).where(ItemClick.user_id == user_id, ItemClick.item_id == item_id)
+    )
+    if existing is not None:
+        return False
+    session.add(ItemClick(user_id=user_id, item_id=item_id))
+    await session.commit()
+    return True
 
 
 async def list_items(
