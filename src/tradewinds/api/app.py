@@ -21,6 +21,7 @@ from tradewinds.core.logging import setup_logging
 from tradewinds.core.redis_client import create_redis_client
 from tradewinds.push.email_channel import EmailChannel, EmailChannelConfig
 from tradewinds.services.chat_service import UserConcurrencyLimiter
+from tradewinds.services.rag_service import current_rag_user, search_user_items
 from tradewinds.services.usage_service import SessionUsageRecorder
 from tradewinds.tasks.celery_app import PUSH_TASK, celery_app, configure_broker
 
@@ -72,7 +73,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.usage_recorder = SessionUsageRecorder(app.state.session_factory)
 
     # 对话 Agent:工具循环(mid 档位)+ 每用户并发限流
-    chat_registry = build_chat_registry(components.source_clients, components.fetcher)
+    embedder = app.state.embedder
+    session_factory = app.state.session_factory
+
+    async def history_searcher(query: str) -> str:
+        if embedder is None:
+            return "检索功能未启用"
+        user_id = current_rag_user()
+        if user_id is None:
+            return "无法确定当前用户,历史检索不可用"
+        async with session_factory() as session:
+            rows = await search_user_items(session, embedder, user_id, query, limit=5)
+        lines = [f"- {row['title']}\n  {row['url']}" for row in rows]
+        return "\n".join(lines) if lines else "无匹配的历史条目"
+
+    chat_registry = build_chat_registry(
+        components.source_clients, components.fetcher, history_searcher=history_searcher
+    )
     app.state.tool_loop = ToolLoop(
         components.provider,
         chat_registry,

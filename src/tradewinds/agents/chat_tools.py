@@ -26,7 +26,12 @@ def _plan_for(query: str, source: SourceName) -> RetrievalPlan:
     )
 
 
-def build_chat_registry(clients: Sequence[SourceClient], fetcher: Fetcher) -> ToolRegistry:
+def build_chat_registry(
+    clients: Sequence[SourceClient],
+    fetcher: Fetcher,
+    *,
+    history_searcher: Callable[[str], Awaitable[str]] | None = None,
+) -> ToolRegistry:
     """把源客户端适配为 chat 工具:search_<source> 与 fetch_page。"""
     by_name = {client.name: client for client in clients}
     registry = ToolRegistry()

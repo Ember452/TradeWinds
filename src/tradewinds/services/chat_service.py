@@ -21,6 +21,7 @@ from tradewinds.core.exceptions import NotFoundError, TradeWindsError
 from tradewinds.models.conversation import Conversation, MessageRole
 from tradewinds.models.conversation import Message as MessageModel
 from tradewinds.models.user import User
+from tradewinds.services.rag_service import set_rag_user
 
 _CITATION_URL_PATTERN = re.compile(r"https?://[^\s)\"'>\]]+")
 _DELTA_CHUNK_CHARS = 80
@@ -181,7 +182,8 @@ class ChatService:
 
         task = asyncio.create_task(self._run_and_persist(conversation.id, user_id, messages))
         try:
-            result, citations = await asyncio.shield(task)
+            with set_rag_user(user_id):
+                result, citations = await asyncio.shield(task)
         except asyncio.CancelledError:
             # 客户端断连:后台任务继续完成持久化与计量(不丢引用)
             raise

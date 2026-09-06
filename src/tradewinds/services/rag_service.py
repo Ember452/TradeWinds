@@ -4,7 +4,9 @@
 "我上周看过的那篇讲 xx 的文章"类问题的底层实现。
 """
 
+import contextvars
 import json
+from contextlib import AbstractContextManager
 from typing import Any
 
 import structlog
@@ -14,6 +16,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tradewinds.agents.orchestrator.embeddings import Embedder
 
 logger = structlog.get_logger(__name__)
+
+# 对话工具在 ToolLoop 任务内执行,拿不到请求依赖;当前用户经 contextvar 传递
+_current_user_id: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "rag_current_user_id", default=None
+)
+
+
+def set_rag_user(user_id: int) -> AbstractContextManager[None]:
+    """在对话请求期间声明当前用户;返回可 with 的重置句柄。"""
+    token = _current_user_id.set(user_id)
+
+    class _Reset(AbstractContextManager[None]):
+        def __exit__(self, *args: object) -> None:
+            _current_user_id.reset(token)
+
+    return _Reset()
+
+
+def current_rag_user() -> int | None:
+    return _current_user_id.get()
 
 
 async def upsert_item_embedding(

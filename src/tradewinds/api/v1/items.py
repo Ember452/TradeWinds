@@ -2,13 +2,14 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tradewinds.api.deps import get_current_user, get_db, get_topic_service
 from tradewinds.models.user import User
 from tradewinds.services.item_service import list_items, record_click
+from tradewinds.services.rag_service import search_user_items
 from tradewinds.services.topic_service import TopicService
 
 router = APIRouter(tags=["feed"])
@@ -31,6 +32,37 @@ class ItemRead(BaseModel):
 class FeedPage(BaseModel):
     items: list[ItemRead]
     next_cursor: int | None = None
+
+
+class SearchHit(BaseModel):
+    id: int
+    url: str
+    title: str
+    summary: str | None
+    source: str
+    score: float | None
+    distance: float
+
+
+@router.get("/items/search")
+async def search_own_items(
+    request: Request,
+    q: str = Query(min_length=1, max_length=500),
+    limit: int = Query(default=5, ge=1, le=20),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> list[SearchHit]:
+    """已读内容语义检索:"我上周看过的那篇讲 xx 的文章"。
+
+    嵌入功能未启用(未配置 TRADEWINDS_EMBEDDING_MODEL)→ 404 关闭。
+    """
+    embedder = getattr(request.app.state, "embedder", None)
+    if embedder is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="检索功能未启用")
+    rows = await search_user_items(session, embedder, current_user.id, q, limit=limit)
+    return [SearchHit(**row) for row in rows]
 
 
 @router.post("/items/{item_id}/click", status_code=204)
