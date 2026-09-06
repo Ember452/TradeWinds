@@ -173,3 +173,24 @@ class PushChannel(Protocol):
 | 密钥管理 | 全部走环境变量；仓库内无任何真实密钥；Sentry/DSN 等同密钥管理 | — |
 | 错误码 | `core/exceptions` 集中定义业务异常 → 统一错误响应体 `{code, message}` | — |
 | 文档纪律 | 见 AGENTS.md 第 0/9/10 节（阅读地图、文档同步、study 学习文档） | 每个 Task 后写 study |
+
+## 7. 结构演进:何时从水平分层切到垂直域
+
+当前是分层单体(`api → services → models/agents/tools`),新增功能(记忆/RAG/报告/自定义源)一律作为 services 层模块顺分层生长,**不预先按功能开独立包**——与扩展计划"由指标触发演进、不为想象中的规模买单"同源:包结构也跟随需要,而非审美。
+
+### 触发信号(出现任一即启动拆分评估)
+
+1. `services/` 超过 15-20 个模块,或某模块命名需要"和"才能说清职责(AGENTS.md 第 6 节信号);
+2. 某域产生独立生命周期需求(如 RAG 的索引重建任务、记忆的数据保留策略);
+3. 出现循环拉扯:两个 service 互相想 import 对方;
+4. 协作冲突率上升:多人频繁改同一目录。
+
+### 目标形态
+
+水平层切成垂直域:`tradewinds/{memory,rag,reports,feeds}/` 各含自己的 models + service;顶层 `models/` 只保留 User/Topic 等真正全局的聚合;api 层路由按域归组。跨域通信走服务调用或领域事件,依赖方向规则(第 2 节)不变。
+
+### 为什么现在不拆
+
+- 拆分有真实成本:跨域共享的 User/Topic 模型、analyst↔preference 这类交叉引用都要先设计边界;
+- 协议缝(`SourceClient`/`Embedder`/`PushChannel`/`Limiter`)与金标集回归已把将来的重组变成"测试保护下的机械搬运",现在拆只有仪式感收益;
+- 与"微服务拆分(10w 用户前不构成瓶颈,见扩展计划 §5)"是同一原则在包结构上的应用。
